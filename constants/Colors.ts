@@ -1,5 +1,5 @@
 const Colors = {
-  primary: '#1DB954', // A vibrant green for primary actions or highlights
+  primary: '#6b9ded', // A vibrant green for primary actions or highlights
   secondary: '#A1A1AA', // A soft gray for secondary text or icons
   background: '#121212', // Very dark gray, near black for the background
   surface: '#1E1E1E', // Slightly lighter gray for surfaces or cards
