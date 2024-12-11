@@ -1,9 +1,17 @@
-import { View, Text, StyleSheet } from 'react-native';
+import React from 'react';
+import { View, Image, Text, StyleSheet } from 'react-native';
+import Colors from '@/constants/Colors';
 
-export default function SocialScreen() {
+export default function Social() {
   return (
-    <View style={styles.container}>
-      <Text style={styles.text}>Welcome to the Social Page!</Text>
+    <View style={[styles.container, { backgroundColor: Colors.background }]}>
+      <Image
+        source={require('@/assets/images/shrug_emoji.png')}
+        style={styles.image}
+      />
+      <Text style={[styles.text, { color: Colors.text }]}>
+        There is nothing here yet :/
+      </Text>
     </View>
   );
 }
@@ -13,10 +21,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    padding: 16,
+  },
+  image: {
+    width: 100,
+    height: 100,
+    marginBottom: 16,
   },
   text: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
   },
 });

@@ -1,22 +1,14 @@
-const colors = {
-  light: {
-    primary: '#007AFF',
-    secondary: '#A1CEDC',
-    background: '#f5f5f5',
-    text: '#333333',
-    card: '#FFFFFF',
-    border: '#E5E5E5',
-    notification: '#FF3B30',
-  },
-  dark: {
-    primary: '#5E81AC', // Soft pastel blue
-    secondary: '#88C0D0', // Soft pastel cyan
-    background: '#2E3440', // True dark background
-    text: '#D8DEE9', // Off-white text
-    card: '#3B4252', // Slightly lighter than the background
-    border: '#4C566A', // Muted gray
-    notification: '#BF616A', // Soft pastel red
-  },
+const Colors = {
+  primary: '#1DB954', // A vibrant green for primary actions or highlights
+  secondary: '#A1A1AA', // A soft gray for secondary text or icons
+  background: '#121212', // Very dark gray, near black for the background
+  surface: '#1E1E1E', // Slightly lighter gray for surfaces or cards
+  text: '#E4E4E7', // Light gray for primary text, ensuring good contrast
+  onSurface: '#CCCCCC', // Lighter gray for secondary elements on surfaces
+  error: '#CF6679', // Muted red for error messages
+  card: '#1A1A1A', // Darker gray for card backgrounds
+  border: '#292929', // Subtle gray for borders
+  notification: '#BB86FC', // Soft purple for notifications
 };
 
-export default colors;
+export default Colors;

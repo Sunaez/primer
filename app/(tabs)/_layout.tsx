@@ -1,12 +1,21 @@
+import React from 'react';
 import { Tabs } from 'expo-router';
+import Colors from '@/constants/Colors';
 
-export default function Layout() {
+export default function TabLayout() {
   return (
-    <Tabs>
-      <Tabs.Screen name="index" options={{ title: "Daily" }} />
-      <Tabs.Screen name="freeplay" options={{ title: "Freeplay" }} />
-      <Tabs.Screen name="social" options={{ title: "Social" }} />
-      <Tabs.Screen name="profile" options={{ title: "Profile" }} />
+    <Tabs
+      screenOptions={{
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.secondary,
+        tabBarStyle: { backgroundColor: Colors.background },
+        headerShown: false,
+      }}
+    >
+      <Tabs.Screen name="index" options={{ title: 'Daily' }} />
+      <Tabs.Screen name="freeplay" options={{ title: 'Freeplay' }} />
+      <Tabs.Screen name="social" options={{ title: 'Social' }} />
+      <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
     </Tabs>
   );
 }

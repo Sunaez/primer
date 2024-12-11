@@ -1,52 +1,23 @@
 import React from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import { useTheme } from '@/app/_layout';
+import { View, StyleSheet, Image } from 'react-native';
+import { Text, Card, IconButton } from 'react-native-paper';
+import Colors from '@/constants/Colors';
 
-export default function ProfileScreen() {
-  const { colorScheme, setColorScheme, customColors, setCustomColors } = useTheme();
-
-  const handleColorChange = (color: string, key: keyof typeof customColors) => {
-    setCustomColors((prev) => ({ ...prev, [key]: color }));
-  };
-
+export default function Profile() {
   return (
-    <View style={[styles.container, { backgroundColor: customColors.background || '#2E3440' }]}>
-      <Text style={[styles.text, { color: customColors.text || '#D8DEE9' }]}>Profile Settings</Text>
-
-      {/* Theme Selector */}
-      <Text style={styles.label}>Theme:</Text>
-      <Picker
-        selectedValue={colorScheme}
-        onValueChange={(value: 'light' | 'dark') => setColorScheme(value)}
-        style={styles.picker}
-      >
-        <Picker.Item label="Light Mode" value="light" />
-        <Picker.Item label="Dark Mode" value="dark" />
-      </Picker>
-
-      {/* Color Customization */}
-      <Text style={styles.label}>Customize Colors:</Text>
-      <TextInput
-        placeholder="Primary Color"
-        style={styles.input}
-        onChangeText={(text) => handleColorChange(text, 'primary')}
-        value={customColors.primary || ''}
-      />
-      <TextInput
-        placeholder="Background Color"
-        style={styles.input}
-        onChangeText={(text) => handleColorChange(text, 'background')}
-        value={customColors.background || ''}
-      />
-      <TextInput
-        placeholder="Text Color"
-        style={styles.input}
-        onChangeText={(text) => handleColorChange(text, 'text')}
-        value={customColors.text || ''}
-      />
-
-      <Button title="Reset to Default" onPress={() => setCustomColors({})} />
+    <View style={[styles.container, { backgroundColor: Colors.background }]}>
+      <Card style={styles.card}>
+        <Image
+          source={require('@/assets/images/shrug_emoji.png')}
+          style={styles.image}
+        />
+        <Card.Content>
+          <Text style={[styles.text, { color: Colors.text }]}>
+            Nothing here yet :/
+          </Text>
+        </Card.Content>
+      </Card>
+      <IconButton icon="cog" size={24} onPress={() => {}} />
     </View>
   );
 }
@@ -54,27 +25,23 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 16,
   },
+  card: {
+    width: '90%',
+    padding: 16,
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+  },
   text: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  label: {
     fontSize: 18,
-    marginVertical: 8,
+    color: Colors.text,
   },
-  picker: {
-    height: 50,
-    width: '100%',
-  },
-  input: {
-    height: 40,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    marginBottom: 12,
-    paddingHorizontal: 8,
-    borderRadius: 4,
+  image: {
+    width: 100,
+    height: 100,
+    marginBottom: 16,
   },
 });
