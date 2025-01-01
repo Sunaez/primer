@@ -1,136 +1,165 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Button, Alert } from "react-native";
-import { WebView } from "react-native-webview";
+import { View, Text, StyleSheet, TouchableWithoutFeedback, Button } from "react-native";
+import Colors from "@/constants/Colors";
 
-const suits = ["Hearts", "Diamonds", "Clubs", "Spades"];
-const ranks = ["Ace", "2", "3", "4", "5", "6", "7", "8", "9", "10", "Jack", "Queen", "King"];
+// Import shapes
+import Heart from "./shapes/Heart";
+import Triangle from "./shapes/Triangle";
+import Hexagon from "./shapes/Hexagon";
+import Rhombus from "./shapes/Rhombus";
+import Star from "./shapes/Star";
 
-const ReactionGame = () => {
-  const [bottomCard, setBottomCard] = useState({ suit: "", rank: "" });
-  const [upperCard, setUpperCard] = useState({ suit: "", rank: "" });
+// Map shape names to components
+const shapeComponents = {
+  Heart,
+  Triangle,
+  Hexagon,
+  Rhombus,
+  Star,
+};
+
+const shapeColorMap = {
+  Heart: "#CC333F",
+  Triangle: "#33FF57",
+  Hexagon: "#3B8686",
+  Rhombus: "#88A65E",
+  Star: "#F8CA00",
+};
+
+const shapes = Object.keys(shapeComponents) as (keyof typeof shapeComponents)[];
+
+const ReactionGame: React.FC = () => {
+  const [leftShape, setLeftShape] = useState({ shape: "", color: "" });
+  const [rightShape, setRightShape] = useState({ shape: "", color: "" });
   const [isMatched, setIsMatched] = useState(false);
-  const [round, setRound] = useState(1);
   const [reactionTimes, setReactionTimes] = useState<number[]>([]);
   const [startTime, setStartTime] = useState(0);
+  const [round, setRound] = useState(1);
+  const [gameState, setGameState] = useState<"playing" | "waiting" | "finished">(
+    "playing"
+  );
+
+  const numRounds = 5;
+  const switchRate = 450; // Time between random shape changes (ms)
+  let shapeInterval: NodeJS.Timeout;
 
   useEffect(() => {
-    startNewGame();
-  }, []);
+    if (gameState === "playing") startNewRound();
+
+    return () => clearInterval(shapeInterval); // Cleanup interval
+  }, [gameState]);
 
   useEffect(() => {
-    if (upperCard.rank === bottomCard.rank) {
+    if (leftShape.shape === rightShape.shape && leftShape.color === rightShape.color) {
       setIsMatched(true);
+      setStartTime(performance.now()); // Start timing when a match occurs
+      clearInterval(shapeInterval); // Stop shapes from changing on match
+    } else {
+      setIsMatched(false);
+      setStartTime(0); // Reset startTime if not matched
     }
-  }, [upperCard]);
+  }, [leftShape, rightShape]);
 
-  const getRandomCard = () => {
-    const suit = suits[Math.floor(Math.random() * suits.length)];
-    const rank = ranks[Math.floor(Math.random() * ranks.length)];
-    return { suit, rank };
+  const getRandomShape = () => {
+    const shape = shapes[Math.floor(Math.random() * shapes.length)];
+    const color = shapeColorMap[shape];
+    return { shape, color };
   };
 
-  const startNewGame = () => {
-    const newBottomCard = getRandomCard();
-    setBottomCard(newBottomCard);
-    setUpperCard(getRandomCard());
-    setIsMatched(false);
+  const startNewRound = () => {
+    if (round > numRounds) {
+      setGameState("finished");
+      return;
+    }
+
     setStartTime(0);
-  };
+    let count = 0;
+    shapeInterval = setInterval(() => {
+      const newLeft = getRandomShape();
+      const newRight = Math.random() > 0.8 ? newLeft : getRandomShape(); // Rare match
+      setLeftShape(newLeft);
+      setRightShape(newRight);
+      count++;
 
-  const startRound = () => {
-    setStartTime(Date.now());
-    setIsMatched(false);
-    const interval = setInterval(() => {
-      const newUpperCard = getRandomCard();
-      setUpperCard(newUpperCard);
-      if (newUpperCard.rank === bottomCard.rank) {
-        clearInterval(interval);
-        setStartTime(Date.now());
+      if (count >= 10 || gameState !== "playing") {
+        clearInterval(shapeInterval);
       }
-    }, 300);
+    }, switchRate);
   };
 
   const handleReaction = () => {
-    if (isMatched && startTime > 0) {
-      const reactionTime = Date.now() - startTime;
+    if (isMatched && gameState === "playing") {
+      const reactionTime = performance.now() - startTime;
       setReactionTimes([...reactionTimes, reactionTime]);
-      if (round < 5) {
-        setRound(round + 1);
-        startNewGame();
-      } else {
-        calculateAverageTime();
-      }
-    } else {
-      Alert.alert("Wait!", "You need to match the card first!");
+      setGameState("waiting"); // Pause game to show result
+    } else if (gameState === "waiting") {
+      setRound(round + 1);
+      setGameState("playing"); // Start next round
     }
   };
 
   const calculateAverageTime = () => {
-    const averageTime = reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length;
-    Alert.alert(
-      "Game Over",
-      `Your average reaction time is ${averageTime.toFixed(2)} ms`,
-      [{ text: "Restart", onPress: resetGame }]
-    );
-  };
-
-  const resetGame = () => {
-    setRound(1);
-    setReactionTimes([]);
-    startNewGame();
-  };
-
-  const renderCard = (card: { suit: string; rank: string }) => {
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <script src="./assets/js/elements.cardmeister.full.js"></script>
-        <style>
-          body {
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100%;
-          }
-        </style>
-      </head>
-      <body>
-        <playing-card suit="${card.suit}" rank="${card.rank}"></playing-card>
-      </body>
-      </html>
-    `;
-
     return (
-      <WebView
-        originWhitelist={["*"]}
-        source={{ html: htmlContent }}
-        style={{ width: 150, height: 200 }}
-      />
-    );
+      reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length
+    ).toFixed(3);
+  };
+
+  const renderShape = ({ shape, color }: { shape: string; color: string }) => {
+    const ShapeComponent = shapeComponents[shape as keyof typeof shapeComponents];
+    return ShapeComponent ? <ShapeComponent color={color} size={200} /> : null;
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Reaction Game</Text>
-
-      {/* Bottom Card */}
-      <View style={styles.cardContainer}>
-        <Text style={styles.label}>Bottom Card:</Text>
-        {renderCard(bottomCard)}
+    <TouchableWithoutFeedback onPress={handleReaction}>
+      <View style={[styles.container, { backgroundColor: Colors.background }]}>
+        {gameState === "finished" ? (
+          <View style={styles.resultContainer}>
+            <Text style={[styles.text, { color: Colors.text }]}>Game Over!</Text>
+            <View style={styles.table}>
+              <Text style={[styles.text, { fontWeight: "bold", color: Colors.text }]}>
+                Scores
+              </Text>
+              {reactionTimes.map((time, index) => (
+                <Text
+                  key={index}
+                  style={[styles.text, { color: Colors.text }]}
+                >{`Round ${index + 1}: ${time.toFixed(3)} ms`}</Text>
+              ))}
+              <Text style={[styles.text, { color: Colors.text }]}>
+                Average Time: {calculateAverageTime()} ms
+              </Text>
+            </View>
+            <Button
+              title="Play Again"
+              color={Colors.primary}
+              onPress={() => {
+                setRound(1);
+                setReactionTimes([]);
+                setGameState("playing");
+              }}
+            />
+          </View>
+        ) : (
+          <>
+            <Text style={[styles.text, { color: Colors.text }]}>
+              Round {round} of {numRounds}
+            </Text>
+            <View style={styles.shapesContainer}>
+              {renderShape(leftShape)}
+              {renderShape(rightShape)}
+            </View>
+            <Text
+              style={[
+                styles.bottomText,
+                { color: isMatched ? Colors.primary : Colors.text },
+              ]}
+            >
+              {isMatched ? "Matched! Click Now!" : ""}
+            </Text>
+          </>
+        )}
       </View>
-
-      {/* Upper Card */}
-      <View style={styles.cardContainer}>
-        <Text style={styles.label}>Upper Card:</Text>
-        {renderCard(upperCard)}
-      </View>
-
-      {/* Round and Reaction */}
-      <Text style={styles.roundText}>Round: {round} / 5</Text>
-      <Button title={isMatched ? "REACT" : "WAIT..."} onPress={handleReaction} disabled={!isMatched} />
-    </View>
+    </TouchableWithoutFeedback>
   );
 };
 
@@ -139,27 +168,31 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#121212", // Use your app's color scheme
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 20,
-  },
-  cardContainer: {
-    marginBottom: 20,
-    alignItems: "center",
-  },
-  label: {
+  text: {
     fontSize: 18,
-    color: "#fff",
-    marginBottom: 10,
+    marginVertical: 10,
+    textAlign: "center",
   },
-  roundText: {
+  bottomText: {
     fontSize: 16,
-    color: "#ccc",
+    marginTop: 20,
+    textAlign: "center",
+  },
+  shapesContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    marginVertical: 40,
+  },
+  resultContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  table: {
     marginVertical: 20,
+    alignItems: "center",
   },
 });
 
