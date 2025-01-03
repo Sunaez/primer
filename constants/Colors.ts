@@ -1,15 +1,15 @@
 const Colors = {
-  primary: '#6b9ded', // A vibrant green for primary actions or highlights
-  secondary: '#A1A1AA', // A soft gray for secondary text or icons
-  background: '#09090A', // Very dark gray, near black for the background
-  surface: '#1E1E1E', // Slightly lighter gray for surfaces or cards
-  text: '#E4E4E7', // Light gray for primary text, ensuring good contrast
-  onSurface: '#CCCCCC', // Lighter gray for secondary elements on surfaces
-  error: '#CF6679', // Muted red for error messages
-  card: '#1A1A1A', // Darker gray for card backgrounds
-  border: '#292929', // Subtle gray for borders
-  notification: '#BB86FC', // Soft purple for notifications
-  button: '#4CAF50', // A green color for buttons
+  primary: '#00BFFF', // A bright sky blue for primary actions or highlights
+  secondary: '#B0BEC5', // A cool gray for secondary text or icons
+  background: '#121212', // Dark gray, near black for the background
+  surface: '#2C2C2C', // Medium gray for surfaces or cards
+  text: '#FAFAFA', // Almost white for primary text, ensuring excellent contrast
+  onSurface: '#E0E0E0', // Light gray for secondary elements on surfaces
+  error: '#FF5252', // Bright red for error messages
+  card: '#242424', // Dark gray for card backgrounds
+  border: '#3E3E3E', // Medium gray for borders
+  notification: '#FF80AB', // Bright pink for notifications
+  button: '#00E676', // A vibrant green for buttons
   buttonText: '#FFFFFF', // White text for buttons
 };
 

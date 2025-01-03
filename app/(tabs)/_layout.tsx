@@ -10,6 +10,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: Colors.secondary,
         tabBarStyle: { backgroundColor: Colors.background },
         headerShown: false,
+        tabBarLabelStyle: { fontFamily: 'Parkinsans' }, // Ensures consistent font for tab labels
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Daily' }} />

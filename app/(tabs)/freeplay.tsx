@@ -7,6 +7,7 @@ import Colors from '@/constants/Colors';
 const games = [
   { id: 'snap', title: 'Snap' },
   { id: 'reaction', title: 'Reaction Game' },
+  { id: 'maths', title: 'Arithmetic Challenge' }, // Added the Maths game
 ];
 
 export default function Freeplay() {
@@ -15,7 +16,7 @@ export default function Freeplay() {
   const renderItem = ({ item }: { item: { id: string; title: string } }) => (
     <TouchableOpacity
       style={[styles.card, { backgroundColor: Colors.surface }]}
-      onPress={() => router.push(`../games/${item.id}`)}
+      onPress={() => router.push(`../games/${item.id}`)} // Navigate to the game's page
     >
       <Text style={[styles.text, { color: Colors.text }]}>{item.title}</Text>
     </TouchableOpacity>
