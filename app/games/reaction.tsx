@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, Text, StyleSheet, TouchableWithoutFeedback, Button } from "react-native";
 import Colors from "@/constants/Colors";
 
@@ -31,32 +31,31 @@ const shapes = Object.keys(shapeComponents) as (keyof typeof shapeComponents)[];
 const ReactionGame: React.FC = () => {
   const [leftShape, setLeftShape] = useState({ shape: "", color: "" });
   const [rightShape, setRightShape] = useState({ shape: "", color: "" });
-  const [isMatched, setIsMatched] = useState(false);
   const [reactionTimes, setReactionTimes] = useState<number[]>([]);
-  const [startTime, setStartTime] = useState(0);
-  const [round, setRound] = useState(1);
-  const [gameState, setGameState] = useState<"playing" | "waiting" | "finished">(
-    "playing"
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [currentRound, setCurrentRound] = useState(0); // Current round (starts at 0)
+  const [gameState, setGameState] = useState<"start" | "playing" | "waiting" | "finished">(
+    "start"
   );
 
-  const numRounds = 5;
-  const switchRate = 450; // Time between random shape changes (ms)
-  let shapeInterval: NodeJS.Timeout;
+  const numRounds = 5; // Total rounds
+  const switchRate = 450; // Time between shape switches (ms)
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (gameState === "playing") startNewRound();
-
-    return () => clearInterval(shapeInterval); // Cleanup interval
+    if (gameState === "playing") {
+      startShapeRandomization();
+    }
+    return () => clearInterval(intervalRef.current as NodeJS.Timeout); // Cleanup interval
   }, [gameState]);
 
   useEffect(() => {
+    // Check for matches
     if (leftShape.shape === rightShape.shape && leftShape.color === rightShape.color) {
-      setIsMatched(true);
-      setStartTime(performance.now()); // Start timing when a match occurs
-      clearInterval(shapeInterval); // Stop shapes from changing on match
-    } else {
-      setIsMatched(false);
-      setStartTime(0); // Reset startTime if not matched
+      if (!startTime) {
+        setStartTime(performance.now()); // Start timer on match
+      }
+      clearInterval(intervalRef.current as NodeJS.Timeout); // Stop randomization
     }
   }, [leftShape, rightShape]);
 
@@ -66,39 +65,40 @@ const ReactionGame: React.FC = () => {
     return { shape, color };
   };
 
-  const startNewRound = () => {
-    if (round > numRounds) {
-      setGameState("finished");
-      return;
-    }
-
-    setStartTime(0);
+  const startShapeRandomization = () => {
     let count = 0;
-    shapeInterval = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       const newLeft = getRandomShape();
       const newRight = Math.random() > 0.8 ? newLeft : getRandomShape(); // Rare match
       setLeftShape(newLeft);
       setRightShape(newRight);
       count++;
 
-      if (count >= 10 || gameState !== "playing") {
-        clearInterval(shapeInterval);
-      }
+      if (count >= 50) clearInterval(intervalRef.current as NodeJS.Timeout); // Limit randomization
     }, switchRate);
   };
 
-  const handleReaction = () => {
-    if (isMatched && gameState === "playing") {
+  const handleScreenPress = () => {
+    if (gameState === "start") {
+      setGameState("playing"); // Start the game
+      setCurrentRound(1); // First round
+    } else if (gameState === "playing" && startTime) {
       const reactionTime = performance.now() - startTime;
-      setReactionTimes([...reactionTimes, reactionTime]);
-      setGameState("waiting"); // Pause game to show result
+      setReactionTimes((prev) => [...prev, reactionTime]);
+      setGameState("waiting"); // Round ends, wait for next round
     } else if (gameState === "waiting") {
-      setRound(round + 1);
-      setGameState("playing"); // Start next round
+      if (currentRound < numRounds) {
+        setCurrentRound((prev) => prev + 1);
+        setGameState("playing"); // Start next round
+        setStartTime(null); // Reset timer
+      } else {
+        setGameState("finished"); // End game
+      }
     }
   };
 
   const calculateAverageTime = () => {
+    if (reactionTimes.length === 0) return "0.000";
     return (
       reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length
     ).toFixed(3);
@@ -110,9 +110,11 @@ const ReactionGame: React.FC = () => {
   };
 
   return (
-    <TouchableWithoutFeedback onPress={handleReaction}>
+    <TouchableWithoutFeedback onPress={handleScreenPress}>
       <View style={[styles.container, { backgroundColor: Colors.background }]}>
-        {gameState === "finished" ? (
+        {gameState === "start" ? (
+          <Text style={[styles.text, { color: Colors.text }]}>Press the screen to start</Text>
+        ) : gameState === "finished" ? (
           <View style={styles.resultContainer}>
             <Text style={[styles.text, { color: Colors.text }]}>Game Over!</Text>
             <View style={styles.table}>
@@ -133,29 +135,28 @@ const ReactionGame: React.FC = () => {
               title="Play Again"
               color={Colors.primary}
               onPress={() => {
-                setRound(1);
+                setCurrentRound(0);
                 setReactionTimes([]);
-                setGameState("playing");
+                setGameState("start");
               }}
             />
+          </View>
+        ) : gameState === "waiting" ? (
+          <View>
+            <Text style={[styles.text, { color: Colors.text }]}>
+              Reaction Time: {reactionTimes[currentRound - 1]?.toFixed(3)} ms
+            </Text>
+            <Text style={[styles.text, { color: Colors.primary }]}>Start Next Round</Text>
           </View>
         ) : (
           <>
             <Text style={[styles.text, { color: Colors.text }]}>
-              Round {round} of {numRounds}
+              Round {currentRound} of {numRounds}
             </Text>
             <View style={styles.shapesContainer}>
               {renderShape(leftShape)}
               {renderShape(rightShape)}
             </View>
-            <Text
-              style={[
-                styles.bottomText,
-                { color: isMatched ? Colors.primary : Colors.text },
-              ]}
-            >
-              {isMatched ? "Matched! Click Now!" : ""}
-            </Text>
           </>
         )}
       </View>
@@ -172,11 +173,6 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 18,
     marginVertical: 10,
-    textAlign: "center",
-  },
-  bottomText: {
-    fontSize: 16,
-    marginTop: 20,
     textAlign: "center",
   },
   shapesContainer: {
