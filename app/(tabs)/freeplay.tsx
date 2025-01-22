@@ -1,13 +1,18 @@
-// File: app/(tabs)/freeplay.tsx
 import React from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import Colors from '@/constants/Colors';
 
 const games = [
   { id: 'snap', title: 'Snap' },
   { id: 'reaction', title: 'Reaction Game' },
-  { id: 'maths', title: 'Arithmetic Challenge' }, // Added the Maths game
+  { id: 'maths', title: 'Arithmetic Challenge' },
 ];
 
 export default function Freeplay() {
@@ -16,7 +21,7 @@ export default function Freeplay() {
   const renderItem = ({ item }: { item: { id: string; title: string } }) => (
     <TouchableOpacity
       style={[styles.card, { backgroundColor: Colors.surface }]}
-      onPress={() => router.push(`../games/${item.id}`)} // Navigate to the game's page
+      onPress={() => router.push(`/games/${item.id}`)}
     >
       <Text style={[styles.text, { color: Colors.text }]}>{item.title}</Text>
     </TouchableOpacity>
@@ -29,7 +34,6 @@ export default function Freeplay() {
         data={games}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
       />
     </View>
   );
@@ -44,16 +48,15 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 16,
-  },
-  list: {
-    gap: 16,
+    fontFamily: 'Parkinsans', // Apply correct font
   },
   card: {
     padding: 16,
     borderRadius: 8,
-    alignItems: 'center',
+    marginVertical: 8,
   },
   text: {
     fontSize: 18,
+    fontFamily: 'Parkinsans', // Apply correct font
   },
 });

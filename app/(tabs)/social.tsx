@@ -31,5 +31,6 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 18,
     fontWeight: 'bold',
+    fontFamily: 'Parkinsans', // Apply correct font
   },
 });

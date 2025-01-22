@@ -1,18 +1,31 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, Card } from 'react-native-paper';
+import React, { useEffect } from 'react';
+import { View, Text, Button, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useQueuePlay } from '@/games/QueuePlay';
 import Colors from '@/constants/Colors';
 
-export default function Daily() {
+export default function Home() {
+  const router = useRouter();
+  const { startGameQueue } = useQueuePlay();
+
+  useEffect(() => {
+    const dailyGames = [
+      { id: 'reaction', difficulty: 'normal' },
+      { id: 'maths', difficulty: 'medium' },
+    ];
+    startGameQueue(dailyGames);
+  }, [startGameQueue]);
+
   return (
     <View style={[styles.container, { backgroundColor: Colors.background }]}>
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text style={[styles.text, { color: Colors.text }]}>
-            Welcome to the Daily Page
-          </Text>
-        </Card.Content>
-      </Card>
+      <Text style={[styles.title, { color: Colors.text }]}>Daily Challenge</Text>
+      <Button
+        title="Play Today's Games"
+        onPress={() => {
+          router.push('/games/queue');
+        }}
+        color={Colors.primary}
+      />
     </View>
   );
 }
@@ -20,18 +33,13 @@ export default function Daily() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
     padding: 16,
   },
-  card: {
-    width: '90%',
-    padding: 16,
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-  },
-  text: {
-    fontSize: 18,
-    color: Colors.text,
+  title: {
+    fontSize: 24,
+    marginBottom: 16,
+    fontFamily: 'Parkinsans', // Apply correct font
   },
 });

@@ -38,6 +38,7 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 18,
     color: Colors.text,
+    fontFamily: 'Parkinsans', // Apply correct font
   },
   image: {
     width: 100,

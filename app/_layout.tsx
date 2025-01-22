@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { Stack } from 'expo-router';
-import Colors from '@/constants/Colors';
 import * as Font from 'expo-font';
+
+// 1) Import the QueuePlayProvider
+import { QueuePlayProvider } from '@/games/QueuePlay';
+import Colors from '@/constants/Colors';
 
 export default function RootLayout() {
   const [fontsLoaded, setFontsLoaded] = useState(false);
@@ -10,14 +13,14 @@ export default function RootLayout() {
   useEffect(() => {
     const loadFonts = async () => {
       await Font.loadAsync({
-        Parkinsans: require('@/assets/fonts/Parkinsans.ttf'), // Adjust the path if needed
+        Parkinsans: require('@/assets/fonts/Parkinsans.ttf'),
       });
 
-      // Set default font globally using type assertion to avoid TypeScript errors
+      // Default text styling for Parkinsans
       (Text as any).defaultProps = (Text as any).defaultProps || {};
       (Text as any).defaultProps.style = {
         fontFamily: 'Parkinsans',
-        ...(Text as any).defaultProps.style, // Retain any existing default styles
+        ...(Text as any).defaultProps.style,
       };
 
       setFontsLoaded(true);
@@ -35,12 +38,15 @@ export default function RootLayout() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: Colors.background }]}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-    </View>
+    // 2) Wrap the Stack in the QueuePlayProvider
+    <QueuePlayProvider>
+      <View style={[styles.container, { backgroundColor: Colors.background }]}>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+      </View>
+    </QueuePlayProvider>
   );
 }
 

@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, Text, StyleSheet, TouchableWithoutFeedback, Button } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableWithoutFeedback,
+  Button,
+} from "react-native";
 import Colors from "@/constants/Colors";
+import ReturnFreeplayButton from "@/components/ReturnFreeplayButton";
 
 // Import shapes
 import Heart from "./shapes/Heart";
@@ -9,7 +16,7 @@ import Hexagon from "./shapes/Hexagon";
 import Rhombus from "./shapes/Rhombus";
 import Star from "./shapes/Star";
 
-// Map shape names to components
+// Define shape components and colors
 const shapeComponents = {
   Heart,
   Triangle,
@@ -18,7 +25,7 @@ const shapeComponents = {
   Star,
 };
 
-const shapeColorMap = {
+const shapeColorMap: Record<keyof typeof shapeComponents, string> = {
   Heart: "#CC333F",
   Triangle: "#33FF57",
   Hexagon: "#3B8686",
@@ -29,70 +36,79 @@ const shapeColorMap = {
 const shapes = Object.keys(shapeComponents) as (keyof typeof shapeComponents)[];
 
 const ReactionGame: React.FC = () => {
-  const [leftShape, setLeftShape] = useState({ shape: "", color: "" });
-  const [rightShape, setRightShape] = useState({ shape: "", color: "" });
+  const [leftShape, setLeftShape] = useState<{ shape: keyof typeof shapeComponents; color: string }>({
+    shape: "Heart",
+    color: shapeColorMap.Heart,
+  });
+  const [rightShape, setRightShape] = useState<{ shape: keyof typeof shapeComponents; color: string }>({
+    shape: "Triangle",
+    color: shapeColorMap.Triangle,
+  });
   const [reactionTimes, setReactionTimes] = useState<number[]>([]);
   const [startTime, setStartTime] = useState<number | null>(null);
-  const [currentRound, setCurrentRound] = useState(0); // Current round (starts at 0)
+  const [currentRound, setCurrentRound] = useState(0);
   const [gameState, setGameState] = useState<"start" | "playing" | "waiting" | "finished">(
     "start"
   );
 
-  const numRounds = 5; // Total rounds
-  const switchRate = 450; // Time between shape switches (ms)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const numRounds = 5;
+  const intervalRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (gameState === "playing") {
       startShapeRandomization();
     }
-    return () => clearInterval(intervalRef.current as NodeJS.Timeout); // Cleanup interval
+    return () => clearInterval(intervalRef.current as number);
   }, [gameState]);
 
-  useEffect(() => {
-    // Check for matches
-    if (leftShape.shape === rightShape.shape && leftShape.color === rightShape.color) {
-      if (!startTime) {
-        setStartTime(performance.now()); // Start timer on match
-      }
-      clearInterval(intervalRef.current as NodeJS.Timeout); // Stop randomization
-    }
-  }, [leftShape, rightShape]);
-
-  const getRandomShape = () => {
+  const getRandomShape = (): { shape: keyof typeof shapeComponents; color: string } => {
     const shape = shapes[Math.floor(Math.random() * shapes.length)];
     const color = shapeColorMap[shape];
     return { shape, color };
   };
 
   const startShapeRandomization = () => {
-    let count = 0;
-    intervalRef.current = setInterval(() => {
+    let matchesGenerated = 0;
+    intervalRef.current = window.setInterval(() => {
       const newLeft = getRandomShape();
-      const newRight = Math.random() > 0.8 ? newLeft : getRandomShape(); // Rare match
+      let newRight: { shape: keyof typeof shapeComponents; color: string };
+
+      if (Math.random() > 0.8 && matchesGenerated < numRounds) {
+        newRight = newLeft;
+        matchesGenerated++;
+        if (!startTime) {
+          const now = performance.now();
+          setStartTime(now);
+          startTimeRef.current = now;
+        }
+      } else {
+        do {
+          newRight = getRandomShape();
+        } while (newRight.shape === newLeft.shape && newRight.color === newLeft.color);
+      }
+
       setLeftShape(newLeft);
       setRightShape(newRight);
-      count++;
-
-      if (count >= 50) clearInterval(intervalRef.current as NodeJS.Timeout); // Limit randomization
-    }, switchRate);
+    }, 450);
   };
 
   const handleScreenPress = () => {
     if (gameState === "start") {
-      setGameState("playing"); // Start the game
-      setCurrentRound(1); // First round
-    } else if (gameState === "playing" && startTime) {
-      const reactionTime = performance.now() - startTime;
+      setGameState("playing");
+      setCurrentRound(1);
+    } else if (gameState === "playing" && startTimeRef.current) {
+      const reactionTime = performance.now() - startTimeRef.current;
       setReactionTimes((prev) => [...prev, reactionTime]);
-      setGameState("waiting"); // Round ends, wait for next round
+      setGameState("waiting");
+      setStartTime(null);
+      startTimeRef.current = null;
     } else if (gameState === "waiting") {
       if (currentRound < numRounds) {
         setCurrentRound((prev) => prev + 1);
-        setGameState("playing"); // Start next round
-        setStartTime(null); // Reset timer
+        setGameState("playing");
       } else {
-        setGameState("finished"); // End game
+        setGameState("finished");
       }
     }
   };
@@ -104,8 +120,14 @@ const ReactionGame: React.FC = () => {
     ).toFixed(3);
   };
 
-  const renderShape = ({ shape, color }: { shape: string; color: string }) => {
-    const ShapeComponent = shapeComponents[shape as keyof typeof shapeComponents];
+  const renderShape = ({
+    shape,
+    color,
+  }: {
+    shape: keyof typeof shapeComponents;
+    color: string;
+  }) => {
+    const ShapeComponent = shapeComponents[shape];
     return ShapeComponent ? <ShapeComponent color={color} size={200} /> : null;
   };
 
@@ -113,12 +135,18 @@ const ReactionGame: React.FC = () => {
     <TouchableWithoutFeedback onPress={handleScreenPress}>
       <View style={[styles.container, { backgroundColor: Colors.background }]}>
         {gameState === "start" ? (
-          <Text style={[styles.text, { color: Colors.text }]}>Press the screen to start</Text>
+          <Text style={[styles.text, { color: Colors.text }]}>
+            Press the screen to start
+          </Text>
         ) : gameState === "finished" ? (
           <View style={styles.resultContainer}>
-            <Text style={[styles.text, { color: Colors.text }]}>Game Over!</Text>
+            <Text style={[styles.text, { color: Colors.text }]}>
+              Game Over!
+            </Text>
             <View style={styles.table}>
-              <Text style={[styles.text, { fontWeight: "bold", color: Colors.text }]}>
+              <Text
+                style={[styles.text, { fontWeight: "bold", color: Colors.text }]}
+              >
                 Scores
               </Text>
               {reactionTimes.map((time, index) => (
@@ -131,22 +159,27 @@ const ReactionGame: React.FC = () => {
                 Average Time: {calculateAverageTime()} ms
               </Text>
             </View>
-            <Button
-              title="Play Again"
-              color={Colors.primary}
-              onPress={() => {
-                setCurrentRound(0);
-                setReactionTimes([]);
-                setGameState("start");
-              }}
-            />
+            <View style={styles.buttonRow}>
+              <ReturnFreeplayButton />
+              <Button
+                title="Play Again"
+                color={Colors.primary}
+                onPress={() => {
+                  setCurrentRound(0);
+                  setReactionTimes([]);
+                  setGameState("start");
+                }}
+              />
+            </View>
           </View>
         ) : gameState === "waiting" ? (
           <View>
             <Text style={[styles.text, { color: Colors.text }]}>
               Reaction Time: {reactionTimes[currentRound - 1]?.toFixed(3)} ms
             </Text>
-            <Text style={[styles.text, { color: Colors.primary }]}>Start Next Round</Text>
+            <Text style={[styles.text, { color: Colors.primary }]}>
+              Start Next Round
+            </Text>
           </View>
         ) : (
           <>
@@ -189,6 +222,11 @@ const styles = StyleSheet.create({
   table: {
     marginVertical: 20,
     alignItems: "center",
+  },
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginTop: 20,
   },
 });
 

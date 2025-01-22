@@ -1,28 +1,47 @@
 // File: app/games/[id].tsx
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
-import Colors from '@/constants/Colors';
+import { View, StyleSheet } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+
+// Import your games
+import ArithmeticChallenge from '@/games/maths';
+import ReactionGame from '@/games/reaction';
+import SnapGame from '@/games/snap';
+
+const gameComponents: Record<string, React.ComponentType<any>> = {
+  maths: ArithmeticChallenge,
+  reaction: ReactionGame,
+  snap: SnapGame,
+};
 
 export default function GameScreen() {
-  const { id } = useLocalSearchParams(); // Corrected usage of dynamic params
+  const router = useRouter();
+  const { id, difficulty = 'normal' } = useLocalSearchParams();
+
+  const CurrentGame = id && gameComponents[id as string];
+
+  if (!CurrentGame) {
+    return (
+      <View style={styles.container}>
+        {/* Show an error if game not found */}
+      </View>
+    );
+  }
 
   return (
-    <View style={[styles.container, { backgroundColor: Colors.background }]}>
-      <Text style={[styles.text, { color: Colors.text }]}>Welcome to the {id} game!</Text>
+    <View style={styles.container}>
+      <CurrentGame
+        difficulty={difficulty}
+        onGameEnd={() => {
+          // When "Home" is pressed in Maths, we navigate to the tabs 
+          // (or anywhere else you want to go)
+          router.replace('/(tabs)/freeplay');
+        }}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
-  },
-  text: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
+  container: { flex: 1 },
 });
