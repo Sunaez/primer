@@ -1,9 +1,8 @@
+// File: app/_layout.tsx
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { Stack } from 'expo-router';
 import * as Font from 'expo-font';
-
-// 1) Import the QueuePlayProvider
 import { QueuePlayProvider } from '@/games/QueuePlay';
 import Colors from '@/constants/Colors';
 
@@ -38,9 +37,8 @@ export default function RootLayout() {
   }
 
   return (
-    // 2) Wrap the Stack in the QueuePlayProvider
     <QueuePlayProvider>
-      <View style={[styles.container, { backgroundColor: Colors.background }]}>
+      <View style={styles.container}>
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="+not-found" />
