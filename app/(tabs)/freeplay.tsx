@@ -12,7 +12,8 @@ import Colors from '@/constants/Colors';
 const games = [
   { id: 'snap', title: 'Snap' },
   { id: 'reaction', title: 'Reaction Game' },
-  { id: 'maths', title: 'Arithmetic Challenge' },
+  { id: 'maths', title: 'Maths Challenge' },
+  { id: 'PairMatch', title: 'Quick Pair Match' }, // Added Pair Match
 ];
 
 export default function Freeplay() {
