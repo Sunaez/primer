@@ -5,10 +5,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   FlatList,
+  Alert,
 } from 'react-native';
 
 import Colors from '@/constants/Colors';
 import ReturnFreeplayButton from '@/components/ReturnFreeplayButton';
+import { uploadMathsScore } from '@/components/backend/scoreService';
 
 interface Result {
   correct: boolean;
@@ -29,6 +31,9 @@ export default function ArithmeticChallenge({ difficulty = 'easy' }) {
   const [score, setScore] = useState(0);
   const [results, setResults] = useState<Result[]>([]);
   const [startTime, setStartTime] = useState(0);
+
+  // NEW: Track if we've already uploaded this result
+  const [hasUploaded, setHasUploaded] = useState(false);
 
   useEffect(() => {
     if (stage === 'playing') {
@@ -59,6 +64,7 @@ export default function ArithmeticChallenge({ difficulty = 'easy' }) {
         answer = num1 * num2;
         break;
       case '/':
+        // ensure integer division (no remainder)
         if (num2 === 0 || num1 % num2 !== 0) {
           return generateQuestion();
         }
@@ -107,6 +113,25 @@ export default function ArithmeticChallenge({ difficulty = 'easy' }) {
     setQuestionIndex(0);
     setScore(0);
     setResults([]);
+    setHasUploaded(false); // reset so user can upload again after new attempt
+  }
+
+  async function handleUploadScore() {
+    try {
+      // We'll store total time as "timeTaken"
+      const totalTime = results.reduce((sum, r) => sum + r.time, 0);
+
+      await uploadMathsScore({
+        difficulty,
+        score,
+        timeTaken: totalTime,
+      });
+
+      Alert.alert('Success', 'Your score has been uploaded!');
+      setHasUploaded(true);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to upload score.');
+    }
   }
 
   function renderResults() {
@@ -144,6 +169,20 @@ export default function ArithmeticChallenge({ difficulty = 'easy' }) {
               Try Again
             </Text>
           </TouchableOpacity>
+
+          {/* Conditionally render "Upload Score" button or "Uploaded!" text */}
+          {hasUploaded ? (
+            <Text style={styles.uploadedLabel}>Uploaded!</Text>
+          ) : (
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: Colors.button }]}
+              onPress={handleUploadScore}
+            >
+              <Text style={[styles.buttonText, { color: Colors.buttonText }]}>
+                Upload Score
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     );
@@ -243,6 +282,7 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     marginTop: 20,
+    alignItems: 'center',
   },
   button: {
     padding: 16,
@@ -251,5 +291,10 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 20,
+  },
+  uploadedLabel: {
+    fontSize: 18,
+    color: Colors.text,
+    marginHorizontal: 12,
   },
 });

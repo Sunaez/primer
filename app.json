@@ -39,15 +39,6 @@
       "typedRoutes": true
     },
     "extra": {
-      "firebase": {
-        "apiKey": "AIzaSyAn2GayNuV9pCA0D6UujtePJtgGsFBJmxs",
-        "authDomain": "primer-42069.firebaseapp.com",
-        "projectId": "primer-42069",
-        "storageBucket": "primer-42069.appspot.com",
-        "messagingSenderId": "109040540523",
-        "appId": "1:109040540523:web:959ef92697835bf6308a2e",
-        "measurementId": "G-H9CHGB26KY"
-      },
       "router": {
         "origin": false
       },
