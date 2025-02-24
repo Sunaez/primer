@@ -1,15 +1,19 @@
 import React from 'react';
 import { View, Image, Text, StyleSheet } from 'react-native';
-import Colors from '@/constants/Colors';
+import { useThemeContext } from '@/context/ThemeContext';
+import THEMES from '@/constants/themes';
 
 export default function Social() {
+  const { themeName } = useThemeContext();
+  const currentTheme = THEMES[themeName] || THEMES.Dark;
+  
   return (
-    <View style={[styles.container, { backgroundColor: Colors.background }]}>
+    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
       <Image
         source={require('@/assets/images/shrug_emoji.png')}
         style={styles.image}
       />
-      <Text style={[styles.text, { color: Colors.text }]}>
+      <Text style={[styles.text, { color: currentTheme.text }]}>
         There is nothing here yet :/
       </Text>
     </View>
@@ -31,6 +35,6 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 18,
     fontWeight: 'bold',
-    fontFamily: 'Parkinsans', // Apply correct font
+    fontFamily: 'Parkinsans',
   },
 });

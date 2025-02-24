@@ -6,17 +6,17 @@ import {
   TouchableWithoutFeedback,
   Button,
 } from "react-native";
-import Colors from "@/constants/Colors";
+import { useThemeContext } from "@/context/ThemeContext";
+import THEMES from "@/constants/themes";
 import ReturnFreeplayButton from "@/components/ReturnFreeplayButton";
 
-// Import shapes
+// Import shape components
 import Heart from "./shapes/Heart";
 import Triangle from "./shapes/Triangle";
 import Hexagon from "./shapes/Hexagon";
 import Rhombus from "./shapes/Rhombus";
 import Star from "./shapes/Star";
 
-// Define shape components and colors
 const shapeComponents = {
   Heart,
   Triangle,
@@ -36,6 +36,9 @@ const shapeColorMap: Record<keyof typeof shapeComponents, string> = {
 const shapes = Object.keys(shapeComponents) as (keyof typeof shapeComponents)[];
 
 const ReactionGame: React.FC = () => {
+  const { themeName } = useThemeContext();
+  const currentTheme = THEMES[themeName] || THEMES.Dark;
+
   const [leftShape, setLeftShape] = useState<{ shape: keyof typeof shapeComponents; color: string }>({
     shape: "Heart",
     color: shapeColorMap.Heart,
@@ -47,9 +50,7 @@ const ReactionGame: React.FC = () => {
   const [reactionTimes, setReactionTimes] = useState<number[]>([]);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [currentRound, setCurrentRound] = useState(0);
-  const [gameState, setGameState] = useState<"start" | "playing" | "waiting" | "finished">(
-    "start"
-  );
+  const [gameState, setGameState] = useState<"start" | "playing" | "waiting" | "finished">("start");
 
   const numRounds = 5;
   const intervalRef = useRef<number | null>(null);
@@ -115,9 +116,7 @@ const ReactionGame: React.FC = () => {
 
   const calculateAverageTime = () => {
     if (reactionTimes.length === 0) return "0.000";
-    return (
-      reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length
-    ).toFixed(3);
+    return (reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length).toFixed(3);
   };
 
   const renderShape = ({
@@ -133,57 +132,46 @@ const ReactionGame: React.FC = () => {
 
   return (
     <TouchableWithoutFeedback onPress={handleScreenPress}>
-      <View style={[styles.container, { backgroundColor: Colors.background }]}>
+      <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
         {gameState === "start" ? (
-          <Text style={[styles.text, { color: Colors.text }]}>
+          <Text style={[styles.text, { color: currentTheme.text }]}>
             Press the screen to start
           </Text>
         ) : gameState === "finished" ? (
           <View style={styles.resultContainer}>
-            <Text style={[styles.text, { color: Colors.text }]}>
-              Game Over!
-            </Text>
+            <Text style={[styles.text, { color: currentTheme.text }]}>Game Over!</Text>
             <View style={styles.table}>
-              <Text
-                style={[styles.text, { fontWeight: "bold", color: Colors.text }]}
-              >
+              <Text style={[styles.text, { fontWeight: "bold", color: currentTheme.text }]}>
                 Scores
               </Text>
               {reactionTimes.map((time, index) => (
-                <Text
-                  key={index}
-                  style={[styles.text, { color: Colors.text }]}
-                >{`Round ${index + 1}: ${time.toFixed(3)} ms`}</Text>
+                <Text key={index} style={[styles.text, { color: currentTheme.text }]}>{`Round ${index + 1}: ${time.toFixed(3)} ms`}</Text>
               ))}
-              <Text style={[styles.text, { color: Colors.text }]}>
+              <Text style={[styles.text, { color: currentTheme.text }]}>
                 Average Time: {calculateAverageTime()} ms
               </Text>
             </View>
             <View style={styles.buttonRow}>
               <ReturnFreeplayButton />
-              <Button
-                title="Play Again"
-                color={Colors.primary}
-                onPress={() => {
-                  setCurrentRound(0);
-                  setReactionTimes([]);
-                  setGameState("start");
-                }}
-              />
+              <Button title="Play Again" color={currentTheme.primary} onPress={() => {
+                setCurrentRound(0);
+                setReactionTimes([]);
+                setGameState("start");
+              }} />
             </View>
           </View>
         ) : gameState === "waiting" ? (
           <View>
-            <Text style={[styles.text, { color: Colors.text }]}>
+            <Text style={[styles.text, { color: currentTheme.text }]}>
               Reaction Time: {reactionTimes[currentRound - 1]?.toFixed(3)} ms
             </Text>
-            <Text style={[styles.text, { color: Colors.primary }]}>
+            <Text style={[styles.text, { color: currentTheme.primary }]}>
               Start Next Round
             </Text>
           </View>
         ) : (
           <>
-            <Text style={[styles.text, { color: Colors.text }]}>
+            <Text style={[styles.text, { color: currentTheme.text }]}>
               Round {currentRound} of {numRounds}
             </Text>
             <View style={styles.shapesContainer}>
@@ -207,6 +195,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginVertical: 10,
     textAlign: "center",
+    fontFamily: "Parkinsans",
   },
   shapesContainer: {
     flexDirection: "row",

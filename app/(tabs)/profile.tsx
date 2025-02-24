@@ -9,8 +9,9 @@ import {
   TouchableOpacity,
   Text,
   ScrollView,
+  Dimensions,
 } from "react-native";
-import { Card, IconButton } from "react-native-paper";
+import { IconButton } from "react-native-paper";
 import { auth, db } from "@/components/firebaseConfig";
 import {
   signInWithEmailAndPassword,
@@ -41,6 +42,7 @@ export default function Profile() {
   const [username, setUsername] = useState("");
   const [bannerColor, setBannerColor] = useState("#333333");
   const [photoURL, setPhotoURL] = useState<string | null>(null);
+  // Local theme for Firestore update (while global theme updates immediately)
   const [localThemeName, setLocalThemeName] = useState<keyof typeof THEMES>("Dark");
 
   // Example stats
@@ -52,7 +54,11 @@ export default function Profile() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteEmailInput, setDeleteEmailInput] = useState("");
 
-  // Once the user is set, fetch the doc
+  // Responsive layout
+  const screenWidth = Dimensions.get("window").width;
+  const isMobile = screenWidth < 768;
+
+  // Fetch profile on login
   useEffect(() => {
     if (user) {
       fetchUserProfile();
@@ -63,11 +69,8 @@ export default function Profile() {
   const handleAuthAction = async () => {
     try {
       if (isSignUp) {
-        // Create user in Auth
         const userCred = await createUserWithEmailAndPassword(auth, email, password);
         const uid = userCred.user.uid;
-
-        // Create doc with defaults
         await setDoc(doc(db, "profile", uid), {
           username: "",
           bannerColor: "#333333",
@@ -78,15 +81,11 @@ export default function Profile() {
             gamesPlayed: 0,
           },
         });
-
         Alert.alert("Success", "Account created successfully!");
         setUser(auth.currentUser);
       } else {
-        // Log in existing user
         const userCred = await signInWithEmailAndPassword(auth, email, password);
         const uid = userCred.user.uid;
-
-        // Check if doc exists, if not create it
         const profileRef = doc(db, "profile", uid);
         const snap = await getDoc(profileRef);
         if (!snap.exists()) {
@@ -101,7 +100,6 @@ export default function Profile() {
             },
           });
         }
-
         Alert.alert("Success", "Logged in successfully!");
         setUser(auth.currentUser);
       }
@@ -116,6 +114,8 @@ export default function Profile() {
       await auth.signOut();
       resetProfileFields();
       setUser(null);
+      // Reset global theme on sign out
+      setThemeName("Dark");
       Alert.alert("Success", "Logged out successfully!");
     } catch (error: any) {
       Alert.alert("Error", error.message || "An error occurred.");
@@ -139,7 +139,6 @@ export default function Profile() {
   async function fetchUserProfile() {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
-
     const snap = await getDoc(doc(db, "profile", uid));
     if (snap.exists()) {
       const data = snap.data();
@@ -149,6 +148,7 @@ export default function Profile() {
 
       const userTheme = data.theme || "Dark";
       setLocalThemeName(userTheme);
+      // Update global theme immediately
       setThemeName(userTheme);
 
       if (data.stats) {
@@ -166,7 +166,6 @@ export default function Profile() {
       Alert.alert("Not logged in", "Log in to update your profile.");
       return;
     }
-
     const uid = user.uid;
     await updateDoc(doc(db, "profile", uid), {
       username,
@@ -174,17 +173,12 @@ export default function Profile() {
       photoURL,
       theme: localThemeName,
     });
-
-    // update global theme
-    setThemeName(localThemeName);
-
     Alert.alert("Profile Updated", "Your profile has been updated!");
     setShowCustom(false);
   }
 
   // ---- DELETE PROFILE ----
   function toggleDeleteConfirm() {
-    // Show/hide the mini form that asks user to confirm their email
     setShowDeleteConfirm((prev) => !prev);
     setDeleteEmailInput("");
   }
@@ -194,27 +188,18 @@ export default function Profile() {
       Alert.alert("Not logged in", "No user to delete.");
       return;
     }
-
-    // Basic check: typed email must match user's email
     if (deleteEmailInput.trim().toLowerCase() !== user.email.toLowerCase()) {
       Alert.alert("Invalid Email", "Entered email does not match your account email.");
       return;
     }
-
     try {
       const uid = user.uid;
-
-      // 1) delete doc
       await deleteDoc(doc(db, "profile", uid));
-
-      // 2) delete auth account
       await user.delete();
-
       Alert.alert("Deleted", "Your profile and account have been deleted.");
       resetProfileFields();
       setUser(null);
     } catch (err: any) {
-      // If re-auth needed or some other error
       Alert.alert("Error Deleting Account", err.message || "Could not delete account.");
     }
   }
@@ -223,44 +208,33 @@ export default function Profile() {
   if (!user) {
     return (
       <View style={[styles.container, { backgroundColor: THEMES.Dark.background }]}>
-        <Card style={[styles.card, { backgroundColor: THEMES.Dark.surface }]}>
-          <Card.Content>
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              placeholderTextColor="#cccccc"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor="#cccccc"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-            <Button
-              title={isSignUp ? "Sign Up" : "Log In"}
-              onPress={handleAuthAction}
-            />
-            <Text
-              style={styles.toggleText}
-              onPress={() => setIsSignUp((prev) => !prev)}
-            >
-              {isSignUp
-                ? "Already have an account? Log in"
-                : "Don't have an account? Sign up"}
-            </Text>
-          </Card.Content>
-        </Card>
+        <View style={styles.authContainer}>
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor="#cccccc"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            placeholderTextColor="#cccccc"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+          <Button title={isSignUp ? "Sign Up" : "Log In"} onPress={handleAuthAction} />
+          <Text style={styles.toggleText} onPress={() => setIsSignUp((prev) => !prev)}>
+            {isSignUp ? "Already have an account? Log in" : "Don't have an account? Sign up"}
+          </Text>
+        </View>
       </View>
     );
   }
 
-  // ---- IF USER LOGGED IN ----
   const themeStyles = {
     backgroundColor: currentTheme.background,
     textColor: currentTheme.text,
@@ -269,187 +243,178 @@ export default function Profile() {
 
   return (
     <View style={[styles.container, { backgroundColor: themeStyles.backgroundColor }]}>
-      <ScrollView style={{ flex: 1, width: "100%" }} contentContainerStyle={{ alignItems: "center" }}>
-        <Card style={[styles.card, { backgroundColor: themeStyles.cardColor }]}>
-          {/* Banner + profile image */}
-          <View style={styles.bannerContainer}>
-            <View style={[styles.banner, { backgroundColor: bannerColor }]} />
-            <View style={styles.profileImageWrapper}>
-              {photoURL ? (
-                <Image source={{ uri: photoURL }} style={styles.profileImage} resizeMode="cover" />
-              ) : (
-                <View style={[styles.profileImage, { backgroundColor: "#999" }]} />
-              )}
+      {/* Banner Section */}
+      <View style={styles.bannerContainer}>
+        <View style={[styles.banner, { backgroundColor: bannerColor }]} />
+        <View
+          style={[
+            styles.profileImageWrapper,
+            {
+              left: isMobile ? "50%" : 20,
+              transform: isMobile ? [{ translateX: -40 }] : [],
+            },
+          ]}
+        >
+          {photoURL ? (
+            <Image source={{ uri: photoURL }} style={styles.profileImage} resizeMode="cover" />
+          ) : (
+            <View style={[styles.profileImage, { backgroundColor: "#999" }]} />
+          )}
+        </View>
+      </View>
+
+      {/* Profile Info */}
+      <ScrollView contentContainerStyle={styles.infoContainer}>
+        <Text style={[styles.text, { color: themeStyles.textColor }]}>
+          {username ? `Welcome, ${username}!` : `Welcome, ${user.email}`}
+        </Text>
+        <Text style={[styles.statsText, { color: themeStyles.textColor }]}>
+          Games Played: {gamesPlayed ?? 0}
+        </Text>
+        <Text style={[styles.statsText, { color: themeStyles.textColor }]}>
+          Best Perfect Time: {bestPerfectTime ?? "--"}
+        </Text>
+
+        {/* Customize Profile */}
+        <View style={{ marginVertical: 8 }}>
+          <Button
+            title={showCustom ? "Hide Customization" : "Customize Profile"}
+            onPress={() => setShowCustom(!showCustom)}
+          />
+        </View>
+
+        {showCustom && (
+          <View>
+            <Text style={[styles.label, { color: themeStyles.textColor }]}>Username:</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: themeStyles.backgroundColor, color: themeStyles.textColor }]}
+              value={username}
+              onChangeText={setUsername}
+            />
+            <Text style={[styles.label, { color: themeStyles.textColor }]}>Banner Color (hex):</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: themeStyles.backgroundColor, color: themeStyles.textColor }]}
+              value={bannerColor}
+              onChangeText={setBannerColor}
+            />
+            <Text style={[styles.label, { color: themeStyles.textColor }]}>Profile Picture URL:</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: themeStyles.backgroundColor, color: themeStyles.textColor }]}
+              value={photoURL || ""}
+              onChangeText={(val) => setPhotoURL(val)}
+            />
+            <Text style={[styles.label, { color: themeStyles.textColor }]}>Theme:</Text>
+            <View style={styles.themeRow}>
+              {Object.keys(THEMES).map((key) => (
+                <TouchableOpacity
+                  key={key}
+                  style={[
+                    styles.themeOption,
+                    {
+                      borderColor: key === localThemeName ? currentTheme.primary : "gray",
+                      backgroundColor: THEMES[key as keyof typeof THEMES].background,
+                    },
+                  ]}
+                  onPress={() => {
+                    const newTheme = key as keyof typeof THEMES;
+                    setLocalThemeName(newTheme);
+                    setThemeName(newTheme);
+                  }}
+                >
+                  <Text style={{ color: THEMES[key as keyof typeof THEMES].text, fontFamily: "Parkinsans" }}>
+                    {key}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Button title="Update Profile" onPress={handleUpdateProfile} />
+          </View>
+        )}
+
+        {/* Button Row for Logout & Delete Account */}
+        <View style={styles.buttonRow}>
+          <View style={styles.buttonContainer}>
+            <Button title="Logout" onPress={handleLogout} />
+          </View>
+          <View style={styles.buttonContainer}>
+            {!showDeleteConfirm ? (
+              <Button title="Delete Account" color="red" onPress={toggleDeleteConfirm} />
+            ) : null}
+          </View>
+        </View>
+
+        {showDeleteConfirm && (
+          <View style={styles.deleteContainer}>
+            <Text style={[styles.label, { color: themeStyles.textColor }]}>
+              Type your email to confirm account deletion:
+            </Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: themeStyles.backgroundColor, color: themeStyles.textColor }]}
+              placeholder="Enter your email"
+              value={deleteEmailInput}
+              onChangeText={setDeleteEmailInput}
+            />
+            <View style={styles.buttonRow}>
+              <View style={styles.buttonContainer}>
+                <Button title="Cancel" onPress={toggleDeleteConfirm} />
+              </View>
+              <View style={styles.buttonContainer}>
+                <Button title="Confirm Delete" color="red" onPress={handleDeleteConfirm} />
+              </View>
             </View>
           </View>
-
-          <Card.Content>
-            <Text style={[styles.text, { color: themeStyles.textColor }]}>
-              {username ? `Welcome, ${username}!` : `Welcome, ${user.email}`}
-            </Text>
-
-            <Text style={[styles.statsText, { color: themeStyles.textColor }]}>
-              Games Played: {gamesPlayed ?? 0}
-            </Text>
-            <Text style={[styles.statsText, { color: themeStyles.textColor }]}>
-              Best Perfect Time: {bestPerfectTime ?? "--"}
-            </Text>
-
-            {/* Customize Profile */}
-            <View style={{ marginVertical: 8 }}>
-              <Button
-                title={showCustom ? "Hide Customization" : "Customize Profile"}
-                onPress={() => setShowCustom(!showCustom)}
-              />
-            </View>
-
-            {showCustom && (
-              <View>
-                <Text style={[styles.label, { color: themeStyles.textColor }]}>Username:</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    { backgroundColor: themeStyles.backgroundColor, color: themeStyles.textColor },
-                  ]}
-                  value={username}
-                  onChangeText={setUsername}
-                />
-
-                <Text style={[styles.label, { color: themeStyles.textColor }]}>Banner Color (hex):</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    { backgroundColor: themeStyles.backgroundColor, color: themeStyles.textColor },
-                  ]}
-                  value={bannerColor}
-                  onChangeText={setBannerColor}
-                />
-
-                <Text style={[styles.label, { color: themeStyles.textColor }]}>Profile Picture URL:</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    { backgroundColor: themeStyles.backgroundColor, color: themeStyles.textColor },
-                  ]}
-                  value={photoURL || ""}
-                  onChangeText={(val) => setPhotoURL(val)}
-                />
-
-                <Text style={[styles.label, { color: themeStyles.textColor }]}>Theme:</Text>
-                <View style={styles.themeRow}>
-                  {Object.keys(THEMES).map(key => (
-                    <TouchableOpacity
-                      key={key}
-                      style={[
-                        styles.themeOption,
-                        {
-                          borderColor: key === localThemeName ? currentTheme.primary : "gray",
-                          backgroundColor: THEMES[key as keyof typeof THEMES].background,
-                        },
-                      ]}
-                      onPress={() => setLocalThemeName(key as keyof typeof THEMES)}
-                    >
-                      <Text style={{ color: THEMES[key as keyof typeof THEMES].text }}>{key}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <Button title="Update Profile" onPress={handleUpdateProfile} />
-              </View>
-            )}
-
-            <View style={{ height: 16 }} />
-            <Button title="Logout" onPress={handleLogout} />
-
-            {/* Delete account */}
-            <View style={{ height: 16 }} />
-            {!showDeleteConfirm ? (
-              <Button
-                title="Delete Account"
-                color="red"
-                onPress={toggleDeleteConfirm}
-              />
-            ) : (
-              <View style={{ marginTop: 10 }}>
-                <Text style={[styles.label, { color: themeStyles.textColor }]}>
-                  Type your email to confirm account deletion:
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    { backgroundColor: themeStyles.backgroundColor, color: themeStyles.textColor },
-                  ]}
-                  placeholder="Enter your email"
-                  value={deleteEmailInput}
-                  onChangeText={setDeleteEmailInput}
-                />
-                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                  <Button title="Cancel" onPress={toggleDeleteConfirm} />
-                  <Button title="Confirm Delete" color="red" onPress={handleDeleteConfirm} />
-                </View>
-              </View>
-            )}
-          </Card.Content>
-        </Card>
+        )}
       </ScrollView>
-
-      <IconButton
-        icon="cog"
-        size={24}
-        onPress={() => {}}
-        iconColor={currentTheme.primary}
-      />
+      <IconButton icon="cog" size={24} onPress={() => {}} iconColor={currentTheme.primary} />
     </View>
   );
 }
 
-// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  card: {
-    width: "90%",
+  authContainer: {
     padding: 16,
-    borderRadius: 8,
-    marginTop: 16,
-    alignItems: "center",
   },
   bannerContainer: {
     width: "100%",
-    height: 120,
-    position: "relative",
-    marginBottom: 60,
+    height: 200,
   },
   banner: {
     width: "100%",
-    height: 120,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
+    height: "100%",
   },
   profileImageWrapper: {
     position: "absolute",
     bottom: -40,
-    left: "50%",
-    transform: [{ translateX: -40 }],
   },
   profileImage: {
     width: 80,
     height: 80,
     borderRadius: 40,
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  infoContainer: {
+    padding: 16,
+    paddingTop: 56,
   },
   text: {
     fontSize: 18,
-    marginTop: 48,
+    fontFamily: "Parkinsans",
+    marginTop: 16,
     marginBottom: 8,
   },
   statsText: {
     fontSize: 15,
+    fontFamily: "Parkinsans",
     marginBottom: 2,
   },
   label: {
     marginTop: 10,
     fontSize: 14,
+    fontFamily: "Parkinsans",
   },
   input: {
     height: 40,
@@ -459,6 +424,7 @@ const styles = StyleSheet.create({
     marginVertical: 6,
     paddingHorizontal: 8,
     width: "100%",
+    fontFamily: "Parkinsans",
   },
   themeRow: {
     flexDirection: "row",
@@ -481,5 +447,18 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
     textAlign: "center",
     color: "#fff",
+    fontFamily: "Parkinsans",
+  },
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginVertical: 16,
+  },
+  buttonContainer: {
+    flex: 1,
+    marginHorizontal: 8,
+  },
+  deleteContainer: {
+    marginTop: 16,
   },
 });

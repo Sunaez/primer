@@ -7,8 +7,8 @@ import {
   FlatList,
   Alert,
 } from 'react-native';
-
-import Colors from '@/constants/Colors';
+import { useThemeContext } from '@/context/ThemeContext';
+import THEMES from '@/constants/themes';
 import ReturnFreeplayButton from '@/components/ReturnFreeplayButton';
 import { uploadMathsScore } from '@/components/backend/scoreService';
 
@@ -23,6 +23,9 @@ type Stage = 'playing' | 'results';
  * Arithmetic Challenge Game
  */
 export default function ArithmeticChallenge({ difficulty = 'easy' }) {
+  const { themeName } = useThemeContext();
+  const currentTheme = THEMES[themeName] || THEMES.Dark;
+
   const [stage, setStage] = useState<Stage>('playing');
   const [questionIndex, setQuestionIndex] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState('');
@@ -43,8 +46,7 @@ export default function ArithmeticChallenge({ difficulty = 'easy' }) {
 
   function generateQuestion() {
     const operators = ['+', '-', 'x', '/'];
-    const range =
-      difficulty === 'hard' ? 50 : difficulty === 'medium' ? 20 : 10;
+    const range = difficulty === 'hard' ? 50 : difficulty === 'medium' ? 20 : 10;
 
     const num1 = Math.floor(Math.random() * range) + 1;
     const num2 = Math.floor(Math.random() * range) + 1;
@@ -64,7 +66,6 @@ export default function ArithmeticChallenge({ difficulty = 'easy' }) {
         answer = num1 * num2;
         break;
       case '/':
-        // ensure integer division (no remainder)
         if (num2 === 0 || num1 % num2 !== 0) {
           return generateQuestion();
         }
@@ -113,20 +114,17 @@ export default function ArithmeticChallenge({ difficulty = 'easy' }) {
     setQuestionIndex(0);
     setScore(0);
     setResults([]);
-    setHasUploaded(false); // reset so user can upload again after new attempt
+    setHasUploaded(false); // allow re-uploading on new attempt
   }
 
   async function handleUploadScore() {
     try {
-      // We'll store total time as "timeTaken"
       const totalTime = results.reduce((sum, r) => sum + r.time, 0);
-
       await uploadMathsScore({
         difficulty,
         score,
         timeTaken: totalTime,
       });
-
       Alert.alert('Success', 'Your score has been uploaded!');
       setHasUploaded(true);
     } catch (err: any) {
@@ -140,47 +138,39 @@ export default function ArithmeticChallenge({ difficulty = 'easy' }) {
     const accuracy = ((score / results.length) * 100 || 0).toFixed(1);
 
     return (
-      <View style={styles.resultsContainer}>
-        <Text style={styles.header}>Game Over</Text>
-        <Text style={styles.stats}>Score: {score} / 10</Text>
-        <Text style={styles.stats}>Accuracy: {accuracy}%</Text>
-        <Text style={styles.stats}>Average Time: {averageTime}s</Text>
+      <View style={[styles.resultsContainer, { backgroundColor: currentTheme.background }]}>
+        <Text style={[styles.header, { color: currentTheme.text }]}>Game Over</Text>
+        <Text style={[styles.stats, { color: currentTheme.text }]}>Score: {score} / 10</Text>
+        <Text style={[styles.stats, { color: currentTheme.text }]}>Accuracy: {accuracy}%</Text>
+        <Text style={[styles.stats, { color: currentTheme.text }]}>Average Time: {averageTime}s</Text>
 
         <FlatList
           style={styles.resultsList}
           data={results}
           keyExtractor={(_, i) => String(i)}
           renderItem={({ item, index }) => (
-            <Text style={styles.resultText}>
-              Q{index + 1}: {item.correct ? 'Correct' : 'Wrong'} (
-              {item.time.toFixed(1)}s)
+            <Text style={[styles.resultText, { color: currentTheme.text }]}>
+              Q{index + 1}: {item.correct ? 'Correct' : 'Wrong'} ({item.time.toFixed(1)}s)
             </Text>
           )}
         />
 
         <View style={styles.buttonRow}>
           <ReturnFreeplayButton />
-
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: Colors.button }]}
+            style={[styles.button, { backgroundColor: currentTheme.button }]}
             onPress={handleTryAgain}
           >
-            <Text style={[styles.buttonText, { color: Colors.buttonText }]}>
-              Try Again
-            </Text>
+            <Text style={[styles.buttonText, { color: currentTheme.buttonText }]}>Try Again</Text>
           </TouchableOpacity>
-
-          {/* Conditionally render "Upload Score" button or "Uploaded!" text */}
           {hasUploaded ? (
-            <Text style={styles.uploadedLabel}>Uploaded!</Text>
+            <Text style={[styles.uploadedLabel, { color: currentTheme.text }]}>Uploaded!</Text>
           ) : (
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: Colors.button }]}
+              style={[styles.button, { backgroundColor: currentTheme.button }]}
               onPress={handleUploadScore}
             >
-              <Text style={[styles.buttonText, { color: Colors.buttonText }]}>
-                Upload Score
-              </Text>
+              <Text style={[styles.buttonText, { color: currentTheme.buttonText }]}>Upload Score</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -193,8 +183,8 @@ export default function ArithmeticChallenge({ difficulty = 'easy' }) {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: Colors.background }]}>
-      <Text style={[styles.question, { color: Colors.text }]}>
+    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
+      <Text style={[styles.question, { color: currentTheme.text }]}>
         {currentQuestion}
       </Text>
 
@@ -202,17 +192,17 @@ export default function ArithmeticChallenge({ difficulty = 'easy' }) {
         {answers.map((choice, i) => (
           <TouchableOpacity
             key={i}
-            style={[styles.answerButton, { backgroundColor: Colors.button }]}
+            style={[styles.answerButton, { backgroundColor: currentTheme.button }]}
             onPress={() => handleAnswer(choice)}
           >
-            <Text style={[styles.answerText, { color: Colors.buttonText }]}>
+            <Text style={[styles.answerText, { color: currentTheme.buttonText }]}>
               {choice}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <Text style={[styles.progress, { color: Colors.onSurface }]}>
+      <Text style={[styles.progress, { color: currentTheme.onSurface }]}>
         Question {questionIndex + 1} / 10
       </Text>
     </View>
@@ -230,6 +220,7 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     marginBottom: 24,
+    fontFamily: 'Parkinsans',
   },
   answerGrid: {
     flexDirection: 'row',
@@ -246,29 +237,30 @@ const styles = StyleSheet.create({
   },
   answerText: {
     fontSize: 24,
+    fontFamily: 'Parkinsans',
   },
   progress: {
     marginTop: 20,
     fontSize: 20,
+    fontFamily: 'Parkinsans',
   },
   resultsContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: Colors.background,
   },
   header: {
     fontSize: 32,
     fontWeight: 'bold',
     marginBottom: 16,
-    color: Colors.text,
+    fontFamily: 'Parkinsans',
   },
   stats: {
     fontSize: 20,
     marginVertical: 6,
     textAlign: 'center',
-    color: Colors.text,
+    fontFamily: 'Parkinsans',
   },
   resultsList: {
     marginVertical: 20,
@@ -277,7 +269,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginVertical: 4,
     textAlign: 'center',
-    color: Colors.text,
+    fontFamily: 'Parkinsans',
   },
   buttonRow: {
     flexDirection: 'row',
@@ -291,10 +283,11 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 20,
+    fontFamily: 'Parkinsans',
   },
   uploadedLabel: {
     fontSize: 18,
-    color: Colors.text,
     marginHorizontal: 12,
+    fontFamily: 'Parkinsans',
   },
 });

@@ -9,8 +9,9 @@ import {
   Alert,
   Dimensions,
 } from 'react-native';
-import Colors from '@/constants/Colors';
 import { useRouter } from 'expo-router';
+import { useThemeContext } from '@/context/ThemeContext';
+import THEMES from '@/constants/themes';
 import AllShapes from '@/components/AllShapes';
 
 const { width, height } = Dimensions.get('window');
@@ -19,7 +20,7 @@ const COLUMNS = IS_LANDSCAPE ? 5 : 4;
 const ROWS = IS_LANDSCAPE ? 4 : 5;
 const CARD_SIZE = Math.min(width / COLUMNS - 12, height / ROWS - 12);
 
-// Function to invert a color for the background
+// Function to invert a color for the revealed face
 const invertColor = (hex: string) => {
   const rgb = parseInt(hex.slice(1), 16);
   const r = (rgb >> 16) & 0xff,
@@ -28,7 +29,6 @@ const invertColor = (hex: string) => {
   return `rgb(${255 - r}, ${255 - g}, ${255 - b})`;
 };
 
-// Define shape pairs
 const SHAPE_PAIRS = [
   { shape: 'Heart', colors: ['#FF0000', '#FFFF00'] },
   { shape: 'Triangle', colors: ['#00FF00', '#FF69B4'] },
@@ -46,6 +46,9 @@ type ShapeItem = {
 };
 
 export default function PairMatch() {
+  const { themeName } = useThemeContext();
+  const currentTheme = THEMES[themeName] || THEMES.Dark;
+
   const [grid, setGrid] = useState<ShapeItem[]>([]);
   const [flipped, setFlipped] = useState<number[]>([]);
   const [matched, setMatched] = useState<number[]>([]);
@@ -59,7 +62,6 @@ export default function PairMatch() {
 
   const initializeGame = () => {
     const pairs: ShapeItem[] = [];
-
     SHAPE_PAIRS.forEach(({ shape, colors }) => {
       pairs.push({ shape: shape as ShapeName, color: colors[0], id: pairs.length });
       pairs.push({ shape: shape as ShapeName, color: colors[0], id: pairs.length });
@@ -136,55 +138,96 @@ export default function PairMatch() {
     }).start();
   };
 
-  return (
-    <View style={styles.container}>
-      {gameOver ? (
-        <View style={styles.endScreen}>
-          <Text style={styles.header}>Game Over!</Text>
-          <Text style={styles.stats}>Total Turns: {turns}</Text>
-          <Text style={styles.stats}>Time: {((Date.now() - startTime) / 1000).toFixed(2)}s</Text>
-          <Text style={styles.stats}>Time Per Turn: {((Date.now() - startTime) / turns).toFixed(2)}s</Text>
-          <TouchableOpacity onPress={initializeGame} style={styles.button}>
-            <Text style={styles.buttonText}>Play Again</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/freeplay')} style={styles.button}>
-            <Text style={styles.buttonText}>Back to Freeplay</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <>
-          <Text style={styles.header}>Quick Pair Match</Text>
-          <View style={styles.grid}>
-            {grid.map((item, index) => {
-              const ShapeComponent = AllShapes[item.shape] as React.ElementType;
-              const backgroundColor = flippedState[index] || matched.includes(index) ? invertColor(item.color) : Colors.surface;
+  if (gameOver) {
+    const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+    const timePerTurn = turns ? ((Date.now() - startTime) / turns).toFixed(2) : '0';
+    return (
+      <View style={[styles.endScreen, { backgroundColor: currentTheme.background }]}>
+        <Text style={[styles.header, { color: currentTheme.text }]}>Game Over!</Text>
+        <Text style={[styles.stats, { color: currentTheme.text }]}>Total Turns: {turns}</Text>
+        <Text style={[styles.stats, { color: currentTheme.text }]}>Time: {totalTime}s</Text>
+        <Text style={[styles.stats, { color: currentTheme.text }]}>Time Per Turn: {timePerTurn}s</Text>
+        <TouchableOpacity onPress={initializeGame} style={[styles.button, { backgroundColor: currentTheme.button }]}>
+          <Text style={[styles.buttonText, { color: currentTheme.buttonText }]}>Play Again</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/freeplay')} style={[styles.button, { backgroundColor: currentTheme.button }]}>
+          <Text style={[styles.buttonText, { color: currentTheme.buttonText }]}>Back to Freeplay</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
-              return (
-                <TouchableOpacity key={index} style={styles.cardContainer} onPress={() => handleFlip(index)}>
-                  <View style={[styles.revealedCard, { backgroundColor }]}>
-                    {flippedState[index] || matched.includes(index) ? (
-                      <ShapeComponent color={item.color} size={CARD_SIZE * 0.6} />
-                    ) : null}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </>
-      )}
+  return (
+    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
+      <Text style={[styles.header, { color: currentTheme.text }]}>Quick Pair Match</Text>
+      <View style={styles.grid}>
+        {grid.map((item, index) => {
+          const ShapeComponent = AllShapes[item.shape] as React.ElementType;
+          const bgColor = flippedState[index] || matched.includes(index)
+            ? invertColor(item.color)
+            : currentTheme.surface;
+          return (
+            <TouchableOpacity key={index} style={styles.cardContainer} onPress={() => handleFlip(index)}>
+              <View style={[styles.revealedCard, { backgroundColor: bgColor }]}>
+                {(flippedState[index] || matched.includes(index)) && (
+                  <ShapeComponent color={item.color} size={CARD_SIZE * 0.6} />
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background, alignItems: 'center' },
-  header: { fontSize: 24, fontWeight: 'bold', color: Colors.text, marginBottom: 16 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', width: '100%' },
-  cardContainer: { width: CARD_SIZE, height: CARD_SIZE, margin: 5 },
-  hiddenCard: { backgroundColor: Colors.surface, flex: 1, borderRadius: 8 },
-  revealedCard: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  endScreen: { alignItems: 'center', justifyContent: 'center', flex: 1 },
-  button: { backgroundColor: 'blue', padding: 10, borderRadius: 8, marginTop: 10 },
-  buttonText: { fontSize: 18, color: 'white' },
-  stats: { fontSize: 18, color: Colors.text, marginVertical: 5 },
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 16,
+  },
+  header: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    fontFamily: 'Parkinsans',
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  cardContainer: {
+    width: CARD_SIZE,
+    height: CARD_SIZE,
+    margin: 5,
+  },
+  revealedCard: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  endScreen: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  button: {
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 10,
+    marginHorizontal: 10,
+  },
+  buttonText: {
+    fontSize: 18,
+    fontFamily: 'Parkinsans',
+  },
+  stats: {
+    fontSize: 18,
+    marginVertical: 5,
+    fontFamily: 'Parkinsans',
+  },
 });

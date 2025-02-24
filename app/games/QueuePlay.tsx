@@ -1,11 +1,8 @@
-// File: app/games/QueuePlay.tsx
-import React, {
-  createContext,
-  useContext,
-  useState,
-  ReactNode,
-} from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { NavigationProp, useNavigation } from '@react-navigation/native';
+import { View } from 'react-native';
+import { useThemeContext } from '@/context/ThemeContext';
+import THEMES from '@/constants/themes';
 
 interface Game {
   id: string;
@@ -21,22 +18,16 @@ interface QueuePlayContextProps {
   resetQueue: () => void;
 }
 
-/**
- * Context for the multi‐game queue
- */
 const QueuePlayContext = createContext<QueuePlayContextProps | null>(null);
 
-/**
- * Provider that manages a queue of games.
- * Call `startGameQueue()` with an array of games, then render `currentGame`.
- * Call `nextGame()` when a game ends to advance.
- */
 export function QueuePlayProvider({ children }: { children: ReactNode }) {
+  const { themeName } = useThemeContext();
+  const currentTheme = THEMES[themeName] || THEMES.Dark;
+
   const [gameQueue, setGameQueue] = useState<Game[]>([]);
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
 
-  // If using React Navigation, you can use `useNavigation`.
-  // Or omit if you handle finishing differently.
+  // Use React Navigation to handle navigation when queue finishes.
   const navigation = useNavigation<NavigationProp<any>>();
 
   function startGameQueue(queue: Game[]) {
@@ -48,8 +39,6 @@ export function QueuePlayProvider({ children }: { children: ReactNode }) {
     if (currentGameIndex < gameQueue.length - 1) {
       setCurrentGameIndex((prev) => prev + 1);
     } else {
-      // Reached the end of the queue
-      // Example: go back to a home screen
       navigation.navigate('Freeplay');
     }
   }
@@ -72,14 +61,13 @@ export function QueuePlayProvider({ children }: { children: ReactNode }) {
         resetQueue,
       }}
     >
-      {children}
+      <View style={{ flex: 1, backgroundColor: currentTheme.background }}>
+        {children}
+      </View>
     </QueuePlayContext.Provider>
   );
 }
 
-/**
- * Custom hook to use the queue context
- */
 export function useQueuePlay(): QueuePlayContextProps {
   const context = useContext(QueuePlayContext);
   if (!context) {
