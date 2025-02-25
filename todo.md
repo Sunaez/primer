@@ -34,6 +34,6 @@
  2. The best players of that day
 
 
-## Repo Related
-1. Include instructions on cloining the code and actually making a firebase project
-2. Show a demonstration of making the .env file and possibly how to use it
+~~## Repo Related~~
+~~1. Include instructions on cloining the code and actually making a firebase project~~
+~~2. Show a demonstration of making the .env file and possibly how to use it~~
