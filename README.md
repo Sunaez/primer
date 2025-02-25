@@ -1,50 +1,79 @@
-# Welcome to your Expo app 👋
+# Primer App
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+## Overview
+Primer is a brain-training application designed to counteract the negative effects of modern digital entertainment. It helps users enhance cognitive abilities like attention, memory, and reaction time through engaging games based on neuroscience research. The app is free to use and encourages consistency through gamification elements such as streaks and daily challenges.
 
-## Get started
+## Features
+- **Cognitive Training Games**: Play games designed to improve reaction speed, memory, and focus.
+- **Daily Streak Tracking**: Encourages users to engage regularly for continuous improvement.
+- **Personalization**: Customizable themes and settings.
+- **Data-Driven Approach**: Based on cognitive research to ensure real benefits.
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-    npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+## Installation & Setup
+### 1. Clone the Repository
+```sh
+ git clone https://github.com/your-repo/primer-app.git
+ cd primer-app
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 2. Install Dependencies
+Ensure you have Node.js and Expo installed. Then, run:
+```sh
+ npm install
+```
 
-## Learn more
+### 3. Setup Firebase
+Primer uses Firebase for authentication and data storage. To set up Firebase:
 
-To learn more about developing your project with Expo, look at the following resources:
+#### **Step 1: Create a Firebase Project**
+1. Go to [Firebase Console](https://console.firebase.google.com/).
+2. Click **Add project** and follow the setup steps.
+3. Enable **Authentication** (Email/Password, Google, etc.).
+4. Enable **Firestore Database** (in test mode for development).
+5. Enable **Storage** if needed.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+#### **Step 2: Get Firebase Config Keys**
+1. In your Firebase project settings, navigate to **Project Settings** > **General**.
+2. Under **Your Apps**, click **Add App** (choose Web if Expo is being used).
+3. Register your app and copy the Firebase configuration keys.
 
-## Join the community
+#### **Step 3: Configure `.env` File**
+Create a `.env` file in the root directory and add your Firebase credentials:
+```sh
+EXPO_PUBLIC_FIREBASE_API_KEY=your_api_key
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+EXPO_PUBLIC_FIREBASE_APP_ID=your_app_id
+EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID=your_measurement_id
+```
 
-Join our community of developers creating universal apps.
+### 4. Run the App
+Start the development server:
+```sh
+ npm start
+```
+Or if using Expo:
+```sh
+ expo start
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### 5. Build for Production
+To create a production build:
+```sh
+ expo build
+```
+
+## Contribution
+- Fork the repository.
+- Create a new branch (`feature-branch-name`).
+- Commit changes and push.
+- Create a pull request.
+
+## License
+This project is open-source and free for all users. No subscription is required to access features.
+
+## Contact
+For support, contact **Aland Azad** at [220109420@aston.ac.uk](mailto:220109420@aston.ac.uk).
+
