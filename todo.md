@@ -21,8 +21,10 @@
  2. Improve the profile to have more profile customisation
     1. App theme
     2. Stats
+    3. Make banner colour simpler to adjust
 2. Make some daily games, maybe base the id on the time of day?
 3. Maybe add "react native animated" for some nice animations between everything. 🪇
+4. Add pictures to make it more engaging
 ## Back End
 
 
@@ -37,3 +39,5 @@
 ~~## Repo Related~~
 ~~1. Include instructions on cloining the code and actually making a firebase project~~
 ~~2. Show a demonstration of making the .env file and possibly how to use it~~
+
+Deb suggested chatbots + more aesthetics
