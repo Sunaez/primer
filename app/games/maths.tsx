@@ -10,7 +10,7 @@ import {
 import { useThemeContext } from '@/context/ThemeContext';
 import THEMES from '@/constants/themes';
 import ReturnFreeplayButton from '@/components/ReturnFreeplayButton';
-import { uploadMathsScore } from '@/components/backend/scoreService';
+import { uploadGameScore } from '@/components/backend/scoreService';
 
 interface Result {
   correct: boolean;
@@ -19,13 +19,13 @@ interface Result {
 
 type Stage = 'playing' | 'results';
 
-/**
- * Arithmetic Challenge Game
- */
-export default function ArithmeticChallenge({ difficulty = 'easy' }) {
+const TOTAL_QUESTIONS = 10;
+
+export default function MathsGame({ difficulty = 'easy' }) {
   const { themeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
 
+  // Game State Variables
   const [stage, setStage] = useState<Stage>('playing');
   const [questionIndex, setQuestionIndex] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState('');
@@ -33,13 +33,13 @@ export default function ArithmeticChallenge({ difficulty = 'easy' }) {
   const [correctAnswer, setCorrectAnswer] = useState<number | null>(null);
   const [score, setScore] = useState(0);
   const [results, setResults] = useState<Result[]>([]);
-  const [startTime, setStartTime] = useState(0);
-
-  // NEW: Track if we've already uploaded this result
+  const [startTime, setStartTime] = useState<number>(0);
   const [hasUploaded, setHasUploaded] = useState(false);
+  const [datePlayed, setDatePlayed] = useState('');
 
   useEffect(() => {
     if (stage === 'playing') {
+      setDatePlayed(new Date().toISOString()); // Store when the game started
       generateQuestion();
     }
   }, [stage]);
@@ -101,7 +101,7 @@ export default function ArithmeticChallenge({ difficulty = 'easy' }) {
     setResults((prev) => [...prev, { correct: wasCorrect, time: timeTaken }]);
     if (wasCorrect) setScore((prev) => prev + 1);
 
-    if (questionIndex < 9) {
+    if (questionIndex < TOTAL_QUESTIONS - 1) {
       setQuestionIndex((prev) => prev + 1);
       generateQuestion();
     } else {
@@ -114,17 +114,29 @@ export default function ArithmeticChallenge({ difficulty = 'easy' }) {
     setQuestionIndex(0);
     setScore(0);
     setResults([]);
-    setHasUploaded(false); // allow re-uploading on new attempt
+    setHasUploaded(false);
   }
 
   async function handleUploadScore() {
     try {
       const totalTime = results.reduce((sum, r) => sum + r.time, 0);
-      await uploadMathsScore({
+      const accuracy = (score / TOTAL_QUESTIONS) * 100;
+      const averageTime = totalTime / TOTAL_QUESTIONS;
+
+      await uploadGameScore({
+        gameName: "mathsGame",  // Identifies this game
+        datePlayed: datePlayed, // When the game was played
+        timeTaken: parseFloat(totalTime.toFixed(2)), // Total duration in seconds
+        timestamp: Date.now(), // Unix timestamp
+
+        // Game-specific fields:
         difficulty,
-        score,
-        timeTaken: totalTime,
+        score,                 // Number of correct answers
+        totalQuestions: TOTAL_QUESTIONS, // Total number of questions
+        accuracy: parseFloat(accuracy.toFixed(1)), // Percentage of correct answers
+        averageTime: parseFloat(averageTime.toFixed(2)), // Average response time per question
       });
+
       Alert.alert('Success', 'Your score has been uploaded!');
       setHasUploaded(true);
     } catch (err: any) {
@@ -134,42 +146,26 @@ export default function ArithmeticChallenge({ difficulty = 'easy' }) {
 
   function renderResults() {
     const totalTime = results.reduce((sum, r) => sum + r.time, 0);
-    const averageTime = (totalTime / results.length || 0).toFixed(1);
-    const accuracy = ((score / results.length) * 100 || 0).toFixed(1);
+    const accuracy = (score / TOTAL_QUESTIONS) * 100;
+    const averageTime = totalTime / TOTAL_QUESTIONS;
 
     return (
       <View style={[styles.resultsContainer, { backgroundColor: currentTheme.background }]}>
         <Text style={[styles.header, { color: currentTheme.text }]}>Game Over</Text>
-        <Text style={[styles.stats, { color: currentTheme.text }]}>Score: {score} / 10</Text>
-        <Text style={[styles.stats, { color: currentTheme.text }]}>Accuracy: {accuracy}%</Text>
-        <Text style={[styles.stats, { color: currentTheme.text }]}>Average Time: {averageTime}s</Text>
-
-        <FlatList
-          style={styles.resultsList}
-          data={results}
-          keyExtractor={(_, i) => String(i)}
-          renderItem={({ item, index }) => (
-            <Text style={[styles.resultText, { color: currentTheme.text }]}>
-              Q{index + 1}: {item.correct ? 'Correct' : 'Wrong'} ({item.time.toFixed(1)}s)
-            </Text>
-          )}
-        />
+        <Text style={[styles.stats, { color: currentTheme.text }]}>Score: {score} / {TOTAL_QUESTIONS}</Text>
+        <Text style={[styles.stats, { color: currentTheme.text }]}>Accuracy: {accuracy.toFixed(1)}%</Text>
+        <Text style={[styles.stats, { color: currentTheme.text }]}>Avg. Time per Question: {averageTime.toFixed(2)}s</Text>
+        <Text style={[styles.stats, { color: currentTheme.text }]}>Played On: {new Date(datePlayed).toLocaleString()}</Text>
 
         <View style={styles.buttonRow}>
           <ReturnFreeplayButton />
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: currentTheme.button }]}
-            onPress={handleTryAgain}
-          >
+          <TouchableOpacity style={[styles.button, { backgroundColor: currentTheme.button }]} onPress={handleTryAgain}>
             <Text style={[styles.buttonText, { color: currentTheme.buttonText }]}>Try Again</Text>
           </TouchableOpacity>
           {hasUploaded ? (
             <Text style={[styles.uploadedLabel, { color: currentTheme.text }]}>Uploaded!</Text>
           ) : (
-            <TouchableOpacity
-              style={[styles.button, { backgroundColor: currentTheme.button }]}
-              onPress={handleUploadScore}
-            >
+            <TouchableOpacity style={[styles.button, { backgroundColor: currentTheme.button }]} onPress={handleUploadScore}>
               <Text style={[styles.buttonText, { color: currentTheme.buttonText }]}>Upload Score</Text>
             </TouchableOpacity>
           )}
@@ -184,31 +180,18 @@ export default function ArithmeticChallenge({ difficulty = 'easy' }) {
 
   return (
     <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
-      <Text style={[styles.question, { color: currentTheme.text }]}>
-        {currentQuestion}
-      </Text>
-
+      <Text style={[styles.question, { color: currentTheme.text }]}>{currentQuestion}</Text>
       <View style={styles.answerGrid}>
         {answers.map((choice, i) => (
-          <TouchableOpacity
-            key={i}
-            style={[styles.answerButton, { backgroundColor: currentTheme.button }]}
-            onPress={() => handleAnswer(choice)}
-          >
-            <Text style={[styles.answerText, { color: currentTheme.buttonText }]}>
-              {choice}
-            </Text>
+          <TouchableOpacity key={i} style={[styles.answerButton, { backgroundColor: currentTheme.button }]} onPress={() => handleAnswer(choice)}>
+            <Text style={[styles.answerText, { color: currentTheme.buttonText }]}>{choice}</Text>
           </TouchableOpacity>
         ))}
       </View>
-
-      <Text style={[styles.progress, { color: currentTheme.onSurface }]}>
-        Question {questionIndex + 1} / 10
-      </Text>
+      <Text style={[styles.progress, { color: currentTheme.onSurface }]}>Question {questionIndex + 1} / {TOTAL_QUESTIONS}</Text>
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

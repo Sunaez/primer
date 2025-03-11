@@ -1,24 +1,26 @@
-// File: services/scoreService.ts (or any location in your project)
 import { auth, db } from "@/components/firebaseConfig";
 import { collection, addDoc } from "firebase/firestore";
 
-interface MathsScoreData {
-  difficulty: string;
-  score: number;
-  timeTaken: number;   // for example, how many seconds the user spent
-  // add any other relevant fields for your maths game
+// Base structure for all game scores (Required fields for every game)
+interface BaseScoreData {
+  gameName: string;    // e.g., "mathsGame", "pairMatch", "reactionGame", etc.
+  datePlayed: string;  // ISO timestamp ("2025-03-11T14:30:15.123Z")
+  timeTaken: number;   // Total time spent playing (in seconds)
+  timestamp: number;   // Unix timestamp (milliseconds)
 }
 
+// Extendable structure for any game (Optional fields)
+type GameScoreData = BaseScoreData & Record<string, any>; // Allows extra fields dynamically
+
 /**
- * uploadMathsScore
+ * uploadGameScore
  *
- * Writes a single record to /users/{uid}/scores with the necessary
- * fields for the maths game.
+ * Uploads a game score to Firestore.
  * 
- * @param {MathsScoreData} data - The user's new maths score data
- * @returns Promise<string> - The new Firestore doc ID
+ * @param {GameScoreData} data - The game score data.
+ * @returns {Promise<string>} - Returns the new Firestore doc ID.
  */
-export async function uploadMathsScore(data: MathsScoreData): Promise<string> {
+export async function uploadGameScore(data: GameScoreData): Promise<string> {
   if (!auth.currentUser) {
     throw new Error("No authenticated user. Cannot upload score.");
   }
@@ -26,15 +28,7 @@ export async function uploadMathsScore(data: MathsScoreData): Promise<string> {
   const userId = auth.currentUser.uid;
   const scoresCollection = collection(db, "users", userId, "scores");
 
-  // Build the doc payload
-  const payload = {
-    gameName: "mathsGame",     // identify the game
-    difficulty: data.difficulty,
-    score: data.score,
-    timeTaken: data.timeTaken,
-    timestamp: Date.now(),     // track when user got the score
-  };
-
-  const docRef = await addDoc(scoresCollection, payload);
-  return docRef.id;  // if you need the new doc ID for something
+  // Upload to Firestore
+  const docRef = await addDoc(scoresCollection, data);
+  return docRef.id;  // Return Firestore document ID
 }
