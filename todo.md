@@ -6,12 +6,23 @@
 
 ## Immediate tasks Before the 17th
 1. rename the reaction game to snap file (*more appropriate*)
+
+
 6. For simplicity, give the social section just:
  1. The top players total score for the games
  2. The best players of that day
+ * Fix the data collection to collect the game that its playing
+ * Add animation when dropping down the list of games
+
+
+-> So far I got the front end functional but the backend needs more work
+gonna need to upgrade to blaze to upload a certain function, or look at other methods
+of implmenting it.
 
 1. Write the code for each game to collect the data thats used to make sure it records their scores
 
+
+* Make the games list a seperate .ts file array so you only have to change it there
 
 ## Front End
 ### Game related
