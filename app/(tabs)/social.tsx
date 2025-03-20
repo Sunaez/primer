@@ -6,25 +6,21 @@ import {
   StyleSheet,
   ActivityIndicator,
   FlatList,
-  ImageSourcePropType,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import {
   collection,
   query,
-  where,
   orderBy,
   limit,
   getDocs,
   documentId,
+  where,
 } from 'firebase/firestore';
 import { db } from '@/components/firebaseConfig';
 import { useThemeContext } from '@/context/ThemeContext';
 import THEMES from '@/constants/themes';
 
-/**
- * GAMES array
- */
 const games = [
   { id: 'snap', title: 'Snap' },
   { id: 'reaction', title: 'Reaction Game' },
@@ -32,27 +28,13 @@ const games = [
   { id: 'PairMatch', title: 'Quick Pair Match' },
 ];
 
-/**
- * LOCAL placeholders
- */
-const placeholderImages: ImageSourcePropType[] = [
-  require('../../assets/images/placeholder/1.jpg'),
-  require('../../assets/images/placeholder/2.jpg'),
-  require('../../assets/images/placeholder/3.jpg'),
-  require('../../assets/images/placeholder/4.jpg'),
-  require('../../assets/images/placeholder/5.jpg'),
-  require('../../assets/images/placeholder/6.jpg'),
-  require('../../assets/images/placeholder/7.jpg'),
-  require('../../assets/images/placeholder/8.jpg'),
-];
-
-/** Firestore doc shapes */
 interface ScoreDoc {
   userId: string;
+  score: number;
   bestScore: number;
   gameName?: string;
   accuracy?: number;
-  averageReactionTime?: number;
+  averageTime?: number;
   updatedAt?: any;
   date?: string;
 }
@@ -63,17 +45,17 @@ interface ProfileDoc {
   bannerColor?: string;
 }
 
-/** Merged scoreboard item */
 interface LeaderboardItem {
   userId: string;
   bestScore: number;
   accuracy: number;
-  averageReactionTime: number;
+  averageTime: number;
   gameName: string;
   updatedAt: string;
   username: string;
   photoURL: string;
   bannerColor: string;
+  noScore?: boolean;
 }
 
 interface CombinedRow {
@@ -81,36 +63,34 @@ interface CombinedRow {
   allTime?: LeaderboardItem;
 }
 
-export default function SocialTwoColumns() {
+export default function Social() {
   const { themeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
 
-  // Combined scoreboard rows
   const [rows, setRows] = useState<CombinedRow[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Filter by game
   const [selectedGame, setSelectedGame] = useState('maths'); // default
 
   useEffect(() => {
     fetchLeaderboards();
   }, [selectedGame]);
 
-  /** Main fetch logic */
   async function fetchLeaderboards() {
     setLoading(true);
     try {
       const today = new Date().toISOString().split('T')[0];
 
-      // (A) Daily top 10 for date + game
+      // dailyScores/{selectedGame}/scores
+      const dailyRef = collection(db, 'dailyScores', selectedGame, 'scores');
       const dailyQ = query(
-        collection(db, 'dailyScores'),
+        dailyRef,
         where('date', '==', today),
-        where('gameName', '==', selectedGame),
-        orderBy('bestScore', 'desc'),
+        orderBy('score', 'desc'),
         limit(10)
       );
       const dailySnap = await getDocs(dailyQ);
+      console.log(`Fetched ${dailySnap.size} daily scores for ${selectedGame}`);
+
       let dailyDocs: ScoreDoc[] = dailySnap.docs.map((ds) => {
         const d = ds.data() as ScoreDoc;
         return {
@@ -120,19 +100,17 @@ export default function SocialTwoColumns() {
             : 'N/A',
         };
       });
-      if (dailyDocs.length === 0) {
-        // fill with 5 placeholders
-        dailyDocs = generateFillerScoreDocs(5, selectedGame, today);
+      let dailyItems = await attachProfiles(dailyDocs);
+      if (dailyItems.length === 0) {
+        dailyItems = [createNoScoreItem()];
       }
 
-      // (B) All-time top 10 for game
-      const bestQ = query(
-        collection(db, 'bestScores'),
-        where('gameName', '==', selectedGame),
-        orderBy('bestScore', 'desc'),
-        limit(10)
-      );
+      // bestScores/{selectedGame}/scores
+      const bestRef = collection(db, 'bestScores', selectedGame, 'scores');
+      const bestQ = query(bestRef, orderBy('score', 'desc'), limit(10));
       const bestSnap = await getDocs(bestQ);
+      console.log(`Fetched ${bestSnap.size} best scores for ${selectedGame}`);
+
       let bestDocs: ScoreDoc[] = bestSnap.docs.map((ds) => {
         const d = ds.data() as ScoreDoc;
         return {
@@ -142,156 +120,83 @@ export default function SocialTwoColumns() {
             : 'N/A',
         };
       });
-      if (bestDocs.length === 0) {
-        // fill with 5 placeholders
-        bestDocs = generateFillerScoreDocs(5, selectedGame);
+      let allTimeItems = await attachProfiles(bestDocs);
+      if (allTimeItems.length === 0) {
+        allTimeItems = [createNoScoreItem()];
       }
 
-      // attach profiles
-      const dailyItems = await attachProfiles(dailyDocs);
-      const allTimeItems = await attachProfiles(bestDocs);
-
-      // combine => row by row
+      // Align the lists
       const maxLen = Math.max(dailyItems.length, allTimeItems.length);
-      let combined: CombinedRow[] = [];
-      for (let i = 0; i < maxLen; i++) {
-        combined.push({
-          daily: dailyItems[i],
-          allTime: allTimeItems[i],
-        });
+      while (dailyItems.length < maxLen) {
+        dailyItems.push(createNoScoreItem());
+      }
+      while (allTimeItems.length < maxLen) {
+        allTimeItems.push(createNoScoreItem());
       }
 
-      // If STILL no rows, create final fallback
-      if (combined.length === 0) {
-        combined = createFinalFallback();
+      // Combine
+      const combined: CombinedRow[] = [];
+      for (let i = 0; i < maxLen; i++) {
+        combined.push({ daily: dailyItems[i], allTime: allTimeItems[i] });
       }
 
       setRows(combined);
     } catch (err) {
-      console.error('Error fetching scoreboard data:', err);
+      console.error('Error fetching leaderboard data:', err);
     } finally {
       setLoading(false);
     }
   }
 
-  /** generate filler doc with bestScore=0, userId = "fake_user_x" */
-  function generateFillerScoreDocs(count: number, gameName: string, date?: string): ScoreDoc[] {
-    const docs: ScoreDoc[] = [];
-    for (let i = 0; i < count; i++) {
-      docs.push({
-        userId: `fake_user_${Math.random().toString(36).substr(2, 5)}`,
-        bestScore: 0,
-        accuracy: 0,
-        averageReactionTime: 0,
-        gameName,
-        updatedAt: null,
-        date,
-      });
-    }
-    return docs;
-  }
-
-  /** final fallback if somehow both daily + all-time had zero. */
-  function createFinalFallback(): CombinedRow[] {
-    // create 5 "rows" of filler
-    const fillerDaily = generateFillerScoreDocs(5, selectedGame, new Date().toISOString().split('T')[0]);
-    const fillerAllTime = generateFillerScoreDocs(5, selectedGame);
-    const dailyItems = fillerDaily.map((d, i) => convertDocToItem(d, i));
-    const allTimeItems = fillerAllTime.map((d, i) => convertDocToItem(d, i + 100));
-
-    const result: CombinedRow[] = [];
-    for (let i = 0; i < 5; i++) {
-      result.push({
-        daily: dailyItems[i],
-        allTime: allTimeItems[i],
-      });
-    }
-    return result;
-  }
-
-  /** Attach real or filler profiles */
-  async function attachProfiles(scoreDocs: ScoreDoc[]): Promise<LeaderboardItem[]> {
-    if (scoreDocs.length === 0) return [];
-
-    // separate real vs. filler
-    const realDocs = scoreDocs.filter((d) => !d.userId.startsWith('fake_user_'));
-    const userIds = realDocs.map((doc) => doc.userId);
-
-    // fetch real
-    let profileMap: Record<string, ProfileDoc> = {};
-    if (userIds.length > 0) {
-      const pQ = query(collection(db, 'profile'), where(documentId(), 'in', userIds));
-      const snap = await getDocs(pQ);
-      snap.docs.forEach((pDoc) => {
-        profileMap[pDoc.id] = pDoc.data() as ProfileDoc;
-      });
-    }
-
-    // convert
-    const items: LeaderboardItem[] = scoreDocs.map((d, idx) => {
-      if (d.userId.startsWith('fake_user_')) {
-        return convertDocToItem(d, idx);
-      } else {
-        // real doc
-        const p = profileMap[d.userId] || {};
-        return {
-          userId: d.userId,
-          bestScore: d.bestScore,
-          accuracy: d.accuracy ?? 0,
-          averageReactionTime: d.averageReactionTime ?? 0,
-          gameName: d.gameName || '',
-          updatedAt: d.updatedAt || 'N/A',
-          username: p.username || 'Unknown',
-          photoURL: p.photoURL || '',
-          bannerColor: p.bannerColor || '#666',
-        };
-      }
-    });
-
-    return items;
-  }
-
-  /** Convert filler doc to a filler item with random pastel color, random name. */
-  function convertDocToItem(doc: ScoreDoc, idx: number): LeaderboardItem {
-    if (!doc.userId.startsWith('fake_user_')) {
-      // shouldn't happen here, but just in case
-      return {
-        userId: doc.userId,
-        bestScore: doc.bestScore,
-        accuracy: doc.accuracy ?? 0,
-        averageReactionTime: doc.averageReactionTime ?? 0,
-        gameName: doc.gameName || '',
-        updatedAt: doc.updatedAt || 'N/A',
-        username: 'Unknown',
-        photoURL: '',
-        bannerColor: '#666',
-      };
-    }
-
-    const fillerNames = ['Candice','Ravi','Lila','Mo','Bryn','Sasha','Avery','Kai','Jude','Tori','Mika'];
-    const pastelColors = ['#FFD2DD','#D2F1FF','#FFF2CC','#CCFFE5','#E6CCFF','#FCE5D2','#E5FCD2'];
-    const name = fillerNames[Math.floor(Math.random() * fillerNames.length)];
-    const color = pastelColors[Math.floor(Math.random() * pastelColors.length)];
-
+  function createNoScoreItem(): LeaderboardItem {
     return {
-      userId: doc.userId,
+      userId: '',
       bestScore: 0,
       accuracy: 0,
-      averageReactionTime: 0,
-      gameName: doc.gameName || '',
-      updatedAt: 'N/A',
-      username: `${name} (Filler)`,
-      photoURL: '', // so we pick a placeholder
-      bannerColor: color,
+      averageTime: 0,
+      gameName: selectedGame,
+      updatedAt: '',
+      username: 'No score yet',
+      photoURL: '',
+      bannerColor: '#666',
+      noScore: true,
     };
   }
 
-  /** pick random placeholder image from local array */
-  function getRandomPlaceholder(): ImageSourcePropType {
-    return placeholderImages[Math.floor(Math.random() * placeholderImages.length)];
+  async function attachProfiles(scoreDocs: ScoreDoc[]): Promise<LeaderboardItem[]> {
+    if (scoreDocs.length === 0) return [];
+    
+    const realDocs = scoreDocs.filter((d) => d.userId && d.userId.trim() !== '');
+    const userIds = realDocs.map((doc) => doc.userId);
+    let profileMap: Record<string, ProfileDoc> = {};
+
+    if (userIds.length > 0) {
+      for (let i = 0; i < userIds.length; i += 10) {
+        const batchIds = userIds.slice(i, i + 10);
+        const pQ = query(collection(db, 'profile'), where(documentId(), 'in', batchIds));
+        const snap = await getDocs(pQ);
+        snap.docs.forEach((pDoc) => {
+          profileMap[pDoc.id] = pDoc.data() as ProfileDoc;
+        });
+      }
+    }
+
+    return realDocs.map((d) => {
+      const p = profileMap[d.userId] || {};
+      return {
+        userId: d.userId,
+        bestScore: d.score ?? d.bestScore ?? 0,
+        accuracy: d.accuracy ?? 0,
+        averageTime: d.averageTime ?? 0,
+        gameName: d.gameName || selectedGame,
+        updatedAt: d.updatedAt || 'N/A',
+        username: p.username || 'Unknown Player',
+        photoURL: p.photoURL || '',
+        bannerColor: p.bannerColor || '#666',
+      };
+    });
   }
 
-  // RENDER
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
@@ -302,9 +207,9 @@ export default function SocialTwoColumns() {
 
   return (
     <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
-      {/* GAME PICKER */}
+      {/* Only one picker for the game */}
       <View style={styles.pickerContainer}>
-        <Text style={[styles.pickerLabel, { color: currentTheme.text }]}>Choose Game:</Text>
+        <Text style={[styles.pickerLabel, { color: currentTheme.text }]}>Game:</Text>
         <Picker
           selectedValue={selectedGame}
           onValueChange={(val) => setSelectedGame(val)}
@@ -316,13 +221,13 @@ export default function SocialTwoColumns() {
         </Picker>
       </View>
 
-      {/* HEADERS */}
+      {/* Headers */}
       <View style={styles.labelRow}>
         <Text style={[styles.headerLabel, { color: currentTheme.text }]}>
-          Daily Leaderboard
+          Today's Best
         </Text>
         <Text style={[styles.headerLabel, { color: currentTheme.text }]}>
-          All-Time Leaderboard
+          All-Time Best
         </Text>
       </View>
 
@@ -330,45 +235,61 @@ export default function SocialTwoColumns() {
         data={rows}
         renderItem={renderRow}
         keyExtractor={(_, i) => String(i)}
+        ListEmptyComponent={
+          <Text style={[styles.emptyText, { color: currentTheme.text }]}>
+            No scores found
+          </Text>
+        }
       />
     </View>
   );
 
   function renderRow({ item, index }: { item: CombinedRow; index: number }) {
+    const rankColor = index === 0 ? 'gold'
+                    : index === 1 ? 'silver'
+                    : index === 2 ? 'bronze'
+                    : '#fff';
+    const rankLabel = index === 0 ? '1.'
+                     : index === 1 ? '2.'
+                     : index === 2 ? '3.'
+                     : `${index + 1}.`;
+
     return (
       <View style={styles.rowWrapper}>
-        {/* daily */}
+        {/* Daily Leaderboard */}
         <View style={[styles.card, { backgroundColor: currentTheme.surface }]}>
-          <Text style={[styles.rankText, { color: currentTheme.text }]}>
-            {getRankLabel(index)}
-          </Text>
-          {item.daily ? renderLeaderboardCell(item.daily) : renderPlaceholder()}
+          <Text style={[styles.rankText, { color: rankColor }]}>{rankLabel}</Text>
+          {item.daily ? renderLeaderboardCell(item.daily) : renderNoScoreCell()}
         </View>
 
-        {/* allTime */}
+        {/* All-Time Leaderboard */}
         <View style={[styles.card, { backgroundColor: currentTheme.surface }]}>
-          <Text style={[styles.rankText, { color: currentTheme.text }]}>
-            {getRankLabel(index)}
-          </Text>
-          {item.allTime ? renderLeaderboardCell(item.allTime) : renderPlaceholder()}
+          <Text style={[styles.rankText, { color: rankColor }]}>{rankLabel}</Text>
+          {item.allTime ? renderLeaderboardCell(item.allTime) : renderNoScoreCell()}
         </View>
       </View>
     );
   }
 
   function renderLeaderboardCell(lbi: LeaderboardItem) {
+    if (lbi.noScore) return renderNoScoreCell();
+
     return (
       <View style={styles.cellContainer}>
-        {/* left half => banner */}
         <View style={[styles.leftHalf, { backgroundColor: lbi.bannerColor }]}>
-          <Image
-            source={lbi.photoURL ? { uri: lbi.photoURL } : getRandomPlaceholder()}
-            style={styles.avatar}
-            resizeMode="cover"
-          />
-          <Text style={[styles.username, { color: '#fff' }]}>{lbi.username}</Text>
+          {lbi.photoURL ? (
+            <Image source={{ uri: lbi.photoURL }} style={styles.avatar} resizeMode="cover" />
+          ) : (
+            <View style={[styles.avatarPlaceholder, { backgroundColor: '#444' }]} />
+          )}
+          <Text
+            style={[styles.username, { color: '#fff' }]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {lbi.username}
+          </Text>
         </View>
-        {/* right half => transparent */}
         <View style={styles.rightHalf}>
           <Text style={[styles.scoreText, { color: currentTheme.text }]}>
             Score: {lbi.bestScore}
@@ -378,30 +299,17 @@ export default function SocialTwoColumns() {
     );
   }
 
-  function renderPlaceholder() {
-    const randomPH = getRandomPlaceholder();
+  function renderNoScoreCell() {
     return (
       <View style={styles.cellContainer}>
-        <View style={[styles.leftHalf, { backgroundColor: '#666' }]}>
-          <Image source={randomPH} style={styles.avatar} resizeMode="cover" />
-          <Text style={[styles.username, { color: '#fff' }]}>...</Text>
-        </View>
-        <View style={styles.rightHalf}>
-          <Text style={[styles.scoreText, { color: currentTheme.text }]}>...</Text>
-        </View>
+        <Text style={[styles.scoreText, { color: currentTheme.text }]}>
+          No score yet
+        </Text>
       </View>
     );
   }
-
-  function getRankLabel(i: number) {
-    if (i === 0) return 'First';
-    if (i === 1) return 'Second';
-    if (i === 2) return 'Third';
-    return `${i + 1}th`;
-  }
 }
 
-// STYLES
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -411,15 +319,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
+    flexWrap: 'wrap',
   },
   pickerLabel: {
     fontSize: 16,
     marginRight: 8,
+    marginLeft: 8,
     fontFamily: 'Parkinsans',
   },
   pickerStyle: {
     flex: 1,
     fontFamily: 'Parkinsans',
+    height: 40,
   },
   labelRow: {
     flexDirection: 'row',
@@ -454,20 +365,30 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 80,
     borderRadius: 6,
-    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   leftHalf: {
     width: '50%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+    borderTopLeftRadius: 6,
+    borderBottomLeftRadius: 6,
   },
   rightHalf: {
     width: '50%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'transparent',
   },
   avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginBottom: 4,
+  },
+  avatarPlaceholder: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -477,10 +398,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Parkinsans',
     fontSize: 14,
     fontWeight: 'bold',
+    maxWidth: '90%',
   },
   scoreText: {
     fontFamily: 'Parkinsans',
     fontSize: 14,
     textAlign: 'center',
+  },
+  emptyText: {
+    fontFamily: 'Parkinsans',
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 32,
   },
 });
