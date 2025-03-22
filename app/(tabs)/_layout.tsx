@@ -1,98 +1,209 @@
 // file: app/(tabs)/_layout.tsx
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   useWindowDimensions,
   Platform,
 } from 'react-native';
-import { Tabs, Link, Slot, LinkProps } from 'expo-router';
+import { Tabs, Link, Slot, LinkProps, usePathname } from 'expo-router';
 import { useThemeContext } from '@/context/ThemeContext';
 import THEMES from '@/constants/themes';
 
 export default function TabLayout() {
-  // --- Theming ---
   const { themeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
-
-  // --- Determine mobile vs. desktop ---
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
   if (!isDesktop) {
-    // -------------- MOBILE LAYOUT (BOTTOM TABS) --------------
+    // --- MOBILE LAYOUT (BOTTOM TABS) with custom tab labels ---
     return (
       <Tabs
         screenOptions={{
           tabBarActiveTintColor: currentTheme.primary,
           tabBarInactiveTintColor: currentTheme.secondary,
+          tabBarActiveBackgroundColor: currentTheme.selection,
+          tabBarInactiveBackgroundColor: currentTheme.background,
           tabBarStyle: {
             backgroundColor: currentTheme.background,
-            height: 70,
+            height: 60,
             paddingHorizontal: 16,
+            borderTopWidth: 1,
+            borderTopColor: currentTheme.border || '#ccc',
           },
           headerShown: false,
-          tabBarLabelStyle: {
-            fontFamily: 'Parkinsans',
-            fontSize: 14,
-            marginBottom: 6,
+          // Force center alignment for each tab item.
+          tabBarItemStyle: {
+            borderRightWidth: 1,
+            borderRightColor: currentTheme.border || '#ccc',
+            alignItems: 'center',
+            justifyContent: 'center',
           },
+          // Remove the default icon and its container.
+          tabBarIcon: () => null,
+          tabBarIconStyle: { display: 'none' },
         }}
       >
-        <Tabs.Screen name="index" options={{ title: 'Daily' }} />
-        <Tabs.Screen name="freeplay" options={{ title: 'Freeplay' }} />
-        <Tabs.Screen name="social" options={{ title: 'Social' }} />
-        <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: 'Daily',
+            tabBarLabel: ({ focused, color }) => (
+              <View style={styles.tabLabelContainer}>
+                {focused && (
+                  <View style={styles.tabLabelIconContainer}>
+                    <Text style={[styles.tabLabelArrow, { color }]}>▲</Text>
+                  </View>
+                )}
+                <View style={styles.tabLabelTextContainer}>
+                  <Text style={[styles.tabLabelText, { color }]}>Daily</Text>
+                </View>
+              </View>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="freeplay"
+          options={{
+            title: 'Freeplay',
+            tabBarLabel: ({ focused, color }) => (
+              <View style={styles.tabLabelContainer}>
+                {focused && (
+                  <View style={styles.tabLabelIconContainer}>
+                    <Text style={[styles.tabLabelArrow, { color }]}>▲</Text>
+                  </View>
+                )}
+                <View style={styles.tabLabelTextContainer}>
+                  <Text style={[styles.tabLabelText, { color }]}>Freeplay</Text>
+                </View>
+              </View>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="social"
+          options={{
+            title: 'Social',
+            tabBarLabel: ({ focused, color }) => (
+              <View style={styles.tabLabelContainer}>
+                {focused && (
+                  <View style={styles.tabLabelIconContainer}>
+                    <Text style={[styles.tabLabelArrow, { color }]}>▲</Text>
+                  </View>
+                )}
+                <View style={styles.tabLabelTextContainer}>
+                  <Text style={[styles.tabLabelText, { color }]}>Social</Text>
+                </View>
+              </View>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: 'Profile',
+            tabBarLabel: ({ focused, color }) => (
+              <View style={styles.tabLabelContainer}>
+                {focused && (
+                  <View style={styles.tabLabelIconContainer}>
+                    <Text style={[styles.tabLabelArrow, { color }]}>▲</Text>
+                  </View>
+                )}
+                <View style={styles.tabLabelTextContainer}>
+                  <Text style={[styles.tabLabelText, { color }]}>Profile</Text>
+                </View>
+              </View>
+            ),
+          }}
+        />
       </Tabs>
     );
-  } else {
-    // -------------- DESKTOP LAYOUT (SIDEBAR) --------------
-    return (
-      <View style={[styles.desktopContainer, { backgroundColor: currentTheme.background }]}>
-        {/* Left sidebar */}
-        <View style={[styles.sideNav, { backgroundColor: currentTheme.surface }]}>
-          {/* 2:1 Logo - uses theme.primary as background */}
-          <View style={styles.logoContainer}>
-            <View style={[styles.logoPlaceholder, { backgroundColor: currentTheme.primary }]}>
-              <Text style={[styles.logoText, { color: currentTheme.text }]}>LOGO</Text>
-            </View>
-          </View>
-
-          {/* Nav links (typed routes) */}
-          <NavLink title="Daily"    href={'/(tabs)' as const}    theme={currentTheme} />
-          <NavLink title="Freeplay" href={'/(tabs)/freeplay' as const} theme={currentTheme} />
-          <NavLink title="Social"   href={'/(tabs)/social' as const}   theme={currentTheme} />
-          <NavLink title="Profile"  href={'/(tabs)/profile' as const}  theme={currentTheme} />
-        </View>
-
-        {/* Main content (screens) */}
-        <View style={[styles.mainContent, { backgroundColor: currentTheme.background }]}>
-          <Slot />
-        </View>
-      </View>
-    );
   }
+
+  // --- DESKTOP LAYOUT (SIDEBAR) ---
+  return (
+    <View style={[styles.desktopContainer, { backgroundColor: currentTheme.background }]}>
+      <View style={[styles.sideNav, { backgroundColor: currentTheme.surface }]}>
+        {/* Logo */}
+        <View style={styles.logoContainer}>
+          <View style={[styles.logoPlaceholder, { backgroundColor: currentTheme.primary }]}>
+            <Text style={[styles.logoText, { color: currentTheme.contrast }]}>LOGO</Text>
+          </View>
+        </View>
+        {/* Navigation Items */}
+        {NAV_LINKS.map((link, index) => (
+          <NavLink
+            key={link.title}
+            title={link.title}
+            href={link.href}
+            theme={currentTheme}
+            isMobile={false}
+            style={{
+              marginTop: index === 0 ? 16 : 8,
+              marginBottom: 8,
+            }}
+          />
+        ))}
+      </View>
+      <View style={[styles.mainContent, { backgroundColor: currentTheme.background }]}>
+        <Slot />
+      </View>
+    </View>
+  );
 }
 
-/**
- * Minimal NavLink that uses typed `href` and your theme’s color for text.
- * No special active styling included—just a direct link.
- */
+const NAV_LINKS = [
+  { title: 'Daily', href: '/(tabs)' as const },
+  { title: 'Freeplay', href: '/(tabs)/freeplay' as const },
+  { title: 'Social', href: '/(tabs)/social' as const },
+  { title: 'Profile', href: '/(tabs)/profile' as const },
+];
+
 type NavLinkProps = {
   title: string;
   href: LinkProps['href'];
-  theme: typeof THEMES[keyof typeof THEMES]; // currentTheme object
+  theme: typeof THEMES[keyof typeof THEMES];
+  isMobile: boolean;
+  style?: object;
 };
 
-function NavLink({ title, href, theme }: NavLinkProps) {
+function NavLink({ title, href, theme, isMobile, style }: NavLinkProps) {
+  const pathname = usePathname();
+  const [hovered, setHovered] = useState(false);
+  const isActive = pathname.startsWith(typeof href === 'string' ? href : href.pathname);
+  const backgroundColor = isActive ? theme.selection : hovered ? theme.hover : 'transparent';
+  const textColor = isActive ? theme.contrast : theme.text;
   return (
     <Link href={href} asChild>
-      <TouchableOpacity style={styles.navItem}>
-        <Text style={[styles.navText, { color: theme.text }]}>{title}</Text>
-      </TouchableOpacity>
+      {isMobile ? (
+        <Pressable
+          style={({ pressed }) => ({
+            ...styles.navItemMobile,
+            backgroundColor: pressed ? theme.primary : backgroundColor,
+            opacity: pressed ? 0.85 : 1,
+            ...style,
+          })}
+        >
+          <Text style={[styles.navTextMobile, { color: textColor }]}>{title}</Text>
+        </Pressable>
+      ) : (
+        <div
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          style={{
+            ...styles.navItemDesktop as React.CSSProperties,
+            backgroundColor,
+            cursor: 'pointer',
+            ...style,
+          }}
+        >
+          <Text style={[styles.navTextDesktop, { color: textColor }]}>{title}</Text>
+        </div>
+      )}
     </Link>
   );
 }
@@ -103,39 +214,87 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   sideNav: {
-    width: 200,
-    paddingTop: 20,
-    paddingHorizontal: 10,
+    width: 320,
+    paddingTop: 30,
+    paddingHorizontal: 14,
+    alignItems: 'center',
   },
   mainContent: {
     flex: 1,
-    padding: 16,
+    padding: 24,
   },
-
-  // -- 2:1 Placeholder Logo --
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 28,
   },
   logoPlaceholder: {
-    width: 100,  // 2:1 aspect ratio => 100x50
-    height: 50,
+    width: 120,
+    height: 60,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
+    borderRadius: 10,
   },
   logoText: {
     fontFamily: 'Parkinsans',
+    fontSize: 20,
+    fontWeight: 'bold',
   },
-
-  // -- Nav Items --
-  navItem: {
-    marginVertical: 8,
-    padding: 12,
-    borderRadius: 8,
+  navItemMobile: {
+    width: '100%',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 6,
   },
-  navText: {
+  navItemDesktop: {
+    width: '100%',
+    paddingVertical: 22,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 10,
+  },
+  navTextMobile: {
     fontFamily: 'Parkinsans',
-    fontSize: 16,
+    fontSize: 12,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  navTextDesktop: {
+    fontFamily: 'Parkinsans',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  // Custom tab label styles.
+  tabLabelContainer: {
+    width: '100%',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabLabelIconContainer: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabLabelTextContainer: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabLabelArrow: {
+    fontSize: 10,
+    lineHeight: 12,
+    fontFamily: 'Parkinsans',
+    textAlign: 'center',
+  },
+  tabLabelText: {
+    fontSize: 12,
+    marginTop: 2,
+    fontFamily: 'Parkinsans',
+    textAlign: 'center',
   },
 });

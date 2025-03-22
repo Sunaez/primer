@@ -24,6 +24,7 @@ const THEMES = {
     progressBar: '#4CAF50',
     shadowSoft: 'rgba(0, 0, 0, 0.2)',
     shadowHard: 'rgba(0, 0, 0, 0.6)',
+    selection: '#FFD700', 
   },
   Sakura: {
     primary: '#F48FB1',
@@ -50,6 +51,7 @@ const THEMES = {
     progressBar: '#E91E63',
     shadowSoft: 'rgba(255, 192, 203, 0.2)',
     shadowHard: 'rgba(255, 105, 180, 0.6)',
+    selection: '#FF80AB',
   },
   Light: {
     primary: '#2196F3',
@@ -76,6 +78,7 @@ const THEMES = {
     progressBar: '#42A5F5',
     shadowSoft: 'rgba(0, 0, 0, 0.1)',
     shadowHard: 'rgba(0, 0, 0, 0.5)',
+    selection: '#42A5F5',
   },
   Sage: {
     primary: '#A3B18A',
@@ -102,6 +105,7 @@ const THEMES = {
     progressBar: '#81C784',
     shadowSoft: 'rgba(100, 120, 100, 0.2)',
     shadowHard: 'rgba(80, 100, 80, 0.6)',
+    selection: '#66BB6A',
   },
   Sepia: {
     primary: '#A67B5B',
@@ -128,6 +132,7 @@ const THEMES = {
     progressBar: '#D4A373',
     shadowSoft: 'rgba(140, 120, 100, 0.2)',
     shadowHard: 'rgba(100, 80, 60, 0.6)',
+    selection: '#BF8E6B',
   },
 };
 
