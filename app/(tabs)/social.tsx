@@ -20,6 +20,8 @@ import {
 import { db } from '@/components/firebaseConfig';
 import { useThemeContext } from '@/context/ThemeContext';
 import THEMES from '@/constants/themes';
+import useDailyScores from '@/components/backend/GatherDailyScores';
+import useBestScores from '@/components/backend/GatherBestScores';
 
 const games = [
   { id: 'snap', title: 'Snap' },
@@ -71,56 +73,24 @@ export default function Social() {
   const [loading, setLoading] = useState(true);
   const [selectedGame, setSelectedGame] = useState('maths'); // default
 
+  const dailyScores = useDailyScores(selectedGame);
+  const bestScores = useBestScores(selectedGame);
+
   useEffect(() => {
     fetchLeaderboards();
-  }, [selectedGame]);
+  }, [selectedGame, dailyScores, bestScores]);
 
   async function fetchLeaderboards() {
     setLoading(true);
     try {
       const today = new Date().toISOString().split('T')[0];
 
-      // dailyScores/{selectedGame}/scores
-      const dailyRef = collection(db, 'dailyScores', selectedGame, 'scores');
-      const dailyQ = query(
-        dailyRef,
-        where('date', '==', today),
-        orderBy('score', 'desc'),
-        limit(10)
-      );
-      const dailySnap = await getDocs(dailyQ);
-      console.log(`Fetched ${dailySnap.size} daily scores for ${selectedGame}`);
-
-      let dailyDocs: ScoreDoc[] = dailySnap.docs.map((ds) => {
-        const d = ds.data() as ScoreDoc;
-        return {
-          ...d,
-          updatedAt: d.updatedAt
-            ? new Date(d.updatedAt.toDate()).toLocaleString()
-            : 'N/A',
-        };
-      });
-      let dailyItems = await attachProfiles(dailyDocs);
+      let dailyItems = await attachProfiles(dailyScores);
       if (dailyItems.length === 0) {
         dailyItems = [createNoScoreItem()];
       }
 
-      // bestScores/{selectedGame}/scores
-      const bestRef = collection(db, 'bestScores', selectedGame, 'scores');
-      const bestQ = query(bestRef, orderBy('score', 'desc'), limit(10));
-      const bestSnap = await getDocs(bestQ);
-      console.log(`Fetched ${bestSnap.size} best scores for ${selectedGame}`);
-
-      let bestDocs: ScoreDoc[] = bestSnap.docs.map((ds) => {
-        const d = ds.data() as ScoreDoc;
-        return {
-          ...d,
-          updatedAt: d.updatedAt
-            ? new Date(d.updatedAt.toDate()).toLocaleString()
-            : 'N/A',
-        };
-      });
-      let allTimeItems = await attachProfiles(bestDocs);
+      let allTimeItems = await attachProfiles(bestScores);
       if (allTimeItems.length === 0) {
         allTimeItems = [createNoScoreItem()];
       }
@@ -163,9 +133,9 @@ export default function Social() {
     };
   }
 
-  async function attachProfiles(scoreDocs: ScoreDoc[]): Promise<LeaderboardItem[]> {
+  async function attachProfiles(scoreDocs: any[]): Promise<LeaderboardItem[]> {
     if (scoreDocs.length === 0) return [];
-    
+
     const realDocs = scoreDocs.filter((d) => d.userId && d.userId.trim() !== '');
     const userIds = realDocs.map((doc) => doc.userId);
     let profileMap: Record<string, ProfileDoc> = {};

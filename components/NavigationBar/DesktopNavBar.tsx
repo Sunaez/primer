@@ -76,6 +76,8 @@ function DesktopNavItem({ title, href, iconName, theme }: DesktopNavItemProps) {
           styles.navItemDesktop,
           {
             backgroundColor: pressed ? theme.primary : backgroundColor,
+            borderColor: isActive ? theme.primary : 'transparent', // Border color
+            borderWidth: 2, // Border width
           },
         ]}
       >
@@ -102,6 +104,7 @@ const styles = StyleSheet.create({
     paddingRight: 16,
     paddingHorizontal: 10,
     alignItems: 'flex-start',
+    gap: 8,
   },
   mainContent: {
     flex: 1,
@@ -125,6 +128,7 @@ const styles = StyleSheet.create({
   navItemContent: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   iconStyle: {
     width: 40,

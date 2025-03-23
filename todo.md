@@ -18,7 +18,7 @@
 
 4. Add pictures to make it more engaging
     * for freeplay - This could be a short picture or a video that actually explains how the game works -D
-        * Also move the style from rows into larger square shapes and on hover, it expands and displays a video of how the game works
+        * ~~Also move the style from rows into larger square shapes and on hover, it expands and displays a video of how the game works~~
 
 
 -> So far I got the front end functional but the backend needs more work
