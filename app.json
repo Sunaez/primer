@@ -33,7 +33,10 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-font"
+      "expo-font",
+      {
+        "font": ["./assets/fonts/Parkisans.ttf"]
+      }
     ],
     "experiments": {
       "typedRoutes": true
