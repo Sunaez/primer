@@ -11,8 +11,6 @@ import { Picker } from '@react-native-picker/picker';
 import {
   collection,
   query,
-  orderBy,
-  limit,
   getDocs,
   documentId,
   where,
@@ -20,8 +18,7 @@ import {
 import { db } from '@/components/firebaseConfig';
 import { useThemeContext } from '@/context/ThemeContext';
 import THEMES from '@/constants/themes';
-import useDailyScores from '@/components/backend/GatherDailyScores';
-import useBestScores from '@/components/backend/GatherBestScores';
+import useDailyScoresAndBestScore, { ScoreData } from '@/components/backend/useDailyScoresAndBestScore';
 
 const games = [
   { id: 'snap', title: 'Snap' },
@@ -29,17 +26,6 @@ const games = [
   { id: 'maths', title: 'Maths Challenge' },
   { id: 'PairMatch', title: 'Quick Pair Match' },
 ];
-
-interface ScoreDoc {
-  userId: string;
-  score: number;
-  bestScore: number;
-  gameName?: string;
-  accuracy?: number;
-  averageTime?: number;
-  updatedAt?: any;
-  date?: string;
-}
 
 interface ProfileDoc {
   username?: string;
@@ -53,7 +39,6 @@ interface LeaderboardItem {
   accuracy: number;
   averageTime: number;
   gameName: string;
-  updatedAt: string;
   username: string;
   photoURL: string;
   bannerColor: string;
@@ -71,29 +56,26 @@ export default function Social() {
 
   const [rows, setRows] = useState<CombinedRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedGame, setSelectedGame] = useState('maths'); // default
+  const [selectedGame, setSelectedGame] = useState('maths'); // default game
 
-  const dailyScores = useDailyScores(selectedGame);
-  const bestScores = useBestScores(selectedGame);
+  // Use the new hook that accepts the selected game.
+  const { scores: dailyScores, bestScore: dailyBest } = useDailyScoresAndBestScore(selectedGame);
 
   useEffect(() => {
     fetchLeaderboards();
-  }, [selectedGame, dailyScores, bestScores]);
+  }, [selectedGame, dailyScores, dailyBest]);
 
   async function fetchLeaderboards() {
     setLoading(true);
     try {
-      const today = new Date().toISOString().split('T')[0];
-
+      // Attach profile info to daily scores array.
       let dailyItems = await attachProfiles(dailyScores);
       if (dailyItems.length === 0) {
         dailyItems = [createNoScoreItem()];
       }
 
-      let allTimeItems = await attachProfiles(bestScores);
-      if (allTimeItems.length === 0) {
-        allTimeItems = [createNoScoreItem()];
-      }
+      // For the all-time leaderboard (as a test), use the best score wrapped in an array.
+      let allTimeItems = dailyBest ? [await attachProfile(dailyBest)] : [createNoScoreItem()];
 
       // Align the lists
       const maxLen = Math.max(dailyItems.length, allTimeItems.length);
@@ -104,7 +86,7 @@ export default function Social() {
         allTimeItems.push(createNoScoreItem());
       }
 
-      // Combine
+      // Combine the two lists into rows.
       const combined: CombinedRow[] = [];
       for (let i = 0; i < maxLen; i++) {
         combined.push({ daily: dailyItems[i], allTime: allTimeItems[i] });
@@ -118,24 +100,8 @@ export default function Social() {
     }
   }
 
-  function createNoScoreItem(): LeaderboardItem {
-    return {
-      userId: '',
-      bestScore: 0,
-      accuracy: 0,
-      averageTime: 0,
-      gameName: selectedGame,
-      updatedAt: '',
-      username: 'No score yet',
-      photoURL: '',
-      bannerColor: '#666',
-      noScore: true,
-    };
-  }
-
-  async function attachProfiles(scoreDocs: any[]): Promise<LeaderboardItem[]> {
+  async function attachProfiles(scoreDocs: ScoreData[]): Promise<LeaderboardItem[]> {
     if (scoreDocs.length === 0) return [];
-
     const realDocs = scoreDocs.filter((d) => d.userId && d.userId.trim() !== '');
     const userIds = realDocs.map((doc) => doc.userId);
     let profileMap: Record<string, ProfileDoc> = {};
@@ -155,16 +121,34 @@ export default function Social() {
       const p = profileMap[d.userId] || {};
       return {
         userId: d.userId,
-        bestScore: d.score ?? d.bestScore ?? 0,
+        bestScore: d.score ?? 0,
         accuracy: d.accuracy ?? 0,
         averageTime: d.averageTime ?? 0,
         gameName: d.gameName || selectedGame,
-        updatedAt: d.updatedAt || 'N/A',
         username: p.username || 'Unknown Player',
         photoURL: p.photoURL || '',
         bannerColor: p.bannerColor || '#666',
       };
     });
+  }
+
+  async function attachProfile(scoreDoc: ScoreData): Promise<LeaderboardItem> {
+    const profiles = await attachProfiles([scoreDoc]);
+    return profiles.length > 0 ? profiles[0] : createNoScoreItem();
+  }
+
+  function createNoScoreItem(): LeaderboardItem {
+    return {
+      userId: '',
+      bestScore: 0,
+      accuracy: 0,
+      averageTime: 0,
+      gameName: selectedGame,
+      username: 'No score yet',
+      photoURL: '',
+      bannerColor: '#666',
+      noScore: true,
+    };
   }
 
   if (loading) {
@@ -177,7 +161,7 @@ export default function Social() {
 
   return (
     <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
-      {/* Only one picker for the game */}
+      {/* Game Picker */}
       <View style={styles.pickerContainer}>
         <Text style={[styles.pickerLabel, { color: currentTheme.text }]}>Game:</Text>
         <Picker
@@ -191,7 +175,7 @@ export default function Social() {
         </Picker>
       </View>
 
-      {/* Headers */}
+      {/* Leaderboard Headers */}
       <View style={styles.labelRow}>
         <Text style={[styles.headerLabel, { color: currentTheme.text }]}>
           Today's Best

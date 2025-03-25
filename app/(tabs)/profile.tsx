@@ -1,3 +1,4 @@
+// Profile.tsx
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -11,129 +12,39 @@ import {
   ScrollView,
   Dimensions,
 } from "react-native";
-import { IconButton } from "react-native-paper";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { auth, db } from "@/components/firebaseConfig";
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-} from "firebase/auth";
-import {
-  doc,
-  setDoc,
-  getDoc,
-  updateDoc,
-  deleteDoc,
-} from "firebase/firestore";
+import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { useThemeContext } from "@/context/ThemeContext";
 import THEMES from "@/constants/themes";
+import UserSettings from "@/components/profile/UserSettings";
+import SignUpIn from "@/components/profile/SignUp-In";
+import BannerChange from "@/components/profile/BannerChange";
 
 export default function Profile() {
   // ---- THEME HOOKS ----
   const { themeName, setThemeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
 
-  // ---- AUTH & PROFILE STATES ----
+  // ---- USER STATE & PROFILE FIELDS ----
   const [user, setUser] = useState(auth.currentUser);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
-
-  // Profile doc fields
   const [username, setUsername] = useState("");
   const [bannerColor, setBannerColor] = useState("#333333");
   const [photoURL, setPhotoURL] = useState<string | null>(null);
-  // Local theme for Firestore update (while global theme updates immediately)
   const [localThemeName, setLocalThemeName] = useState<keyof typeof THEMES>("Dark");
 
   // Example stats
   const [bestPerfectTime, setBestPerfectTime] = useState<number | null>(null);
   const [gamesPlayed, setGamesPlayed] = useState<number | null>(null);
 
-  // Toggles
+  // Toggles & Panel Visibility
   const [showCustom, setShowCustom] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteEmailInput, setDeleteEmailInput] = useState("");
+  const [settingsVisible, setSettingsVisible] = useState(false);
+  const [showBannerChange, setShowBannerChange] = useState(false);
 
   // Responsive layout
   const screenWidth = Dimensions.get("window").width;
   const isMobile = screenWidth < 768;
-
-  // Fetch profile on login
-  useEffect(() => {
-    if (user) {
-      fetchUserProfile();
-    }
-  }, [user]);
-
-  // ---- AUTH: SIGN UP / LOGIN ----
-  const handleAuthAction = async () => {
-    try {
-      if (isSignUp) {
-        const userCred = await createUserWithEmailAndPassword(auth, email, password);
-        const uid = userCred.user.uid;
-        await setDoc(doc(db, "profile", uid), {
-          username: "",
-          bannerColor: "#333333",
-          photoURL: null,
-          theme: "Dark",
-          stats: {
-            bestPerfectTime: null,
-            gamesPlayed: 0,
-          },
-        });
-        Alert.alert("Success", "Account created successfully!");
-        setUser(auth.currentUser);
-      } else {
-        const userCred = await signInWithEmailAndPassword(auth, email, password);
-        const uid = userCred.user.uid;
-        const profileRef = doc(db, "profile", uid);
-        const snap = await getDoc(profileRef);
-        if (!snap.exists()) {
-          await setDoc(profileRef, {
-            username: "",
-            bannerColor: "#333333",
-            photoURL: null,
-            theme: "Dark",
-            stats: {
-              bestPerfectTime: null,
-              gamesPlayed: 0,
-            },
-          });
-        }
-        Alert.alert("Success", "Logged in successfully!");
-        setUser(auth.currentUser);
-      }
-    } catch (error: any) {
-      Alert.alert("Error", error.message || "An error occurred.");
-    }
-  };
-
-  // ---- LOGOUT ----
-  const handleLogout = async () => {
-    try {
-      await auth.signOut();
-      resetProfileFields();
-      setUser(null);
-      // Reset global theme on sign out
-      setThemeName("Dark");
-      Alert.alert("Success", "Logged out successfully!");
-    } catch (error: any) {
-      Alert.alert("Error", error.message || "An error occurred.");
-    }
-  };
-
-  function resetProfileFields() {
-    setUsername("");
-    setBannerColor("#333333");
-    setPhotoURL(null);
-    setBestPerfectTime(null);
-    setGamesPlayed(null);
-    setLocalThemeName("Dark");
-    setThemeName("Dark");
-    setShowCustom(false);
-    setShowDeleteConfirm(false);
-    setDeleteEmailInput("");
-  }
 
   // ---- FETCH PROFILE DOC ----
   async function fetchUserProfile() {
@@ -145,12 +56,9 @@ export default function Profile() {
       setUsername(data.username || "");
       setBannerColor(data.bannerColor || "#333333");
       setPhotoURL(data.photoURL || null);
-
       const userTheme = data.theme || "Dark";
       setLocalThemeName(userTheme);
-      // Update global theme immediately
       setThemeName(userTheme);
-
       if (data.stats) {
         setBestPerfectTime(data.stats.bestPerfectTime);
         setGamesPlayed(data.stats.gamesPlayed);
@@ -160,36 +68,90 @@ export default function Profile() {
     }
   }
 
-  // ---- UPDATE PROFILE ----
-  async function handleUpdateProfile() {
+  useEffect(() => {
+    if (user) {
+      fetchUserProfile();
+    }
+  }, [user]);
+
+  // ---- UPDATE APPEARANCE (Banner & Profile Picture) ----
+  async function handleUpdateCustomization() {
     if (!user) {
       Alert.alert("Not logged in", "Log in to update your profile.");
       return;
     }
     const uid = user.uid;
-    await updateDoc(doc(db, "profile", uid), {
-      username,
-      bannerColor,
-      photoURL,
-      theme: localThemeName,
-    });
-    Alert.alert("Profile Updated", "Your profile has been updated!");
-    setShowCustom(false);
+    try {
+      await updateDoc(doc(db, "profile", uid), {
+        bannerColor,
+        photoURL,
+      });
+      Alert.alert("Profile Updated", "Your appearance has been updated!");
+      setShowCustom(false);
+    } catch (error: any) {
+      Alert.alert("Update Error", error.message || "An error occurred.");
+    }
   }
 
-  // ---- DELETE PROFILE ----
-  function toggleDeleteConfirm() {
-    setShowDeleteConfirm((prev) => !prev);
-    setDeleteEmailInput("");
-  }
+  // ---- SETTINGS PANEL CALLBACKS ----
+  const handleSettingsUpdate = async (
+    newUsername: string,
+    newTheme: keyof typeof THEMES
+  ) => {
+    if (!user) {
+      Alert.alert("Not logged in", "Log in to update your profile.");
+      return;
+    }
+    const uid = user.uid;
+    try {
+      await updateDoc(doc(db, "profile", uid), {
+        username: newUsername,
+        theme: newTheme,
+      });
+      setUsername(newUsername);
+      setLocalThemeName(newTheme);
+      setThemeName(newTheme);
+      Alert.alert("Profile Updated", "Your profile has been updated!");
+      // Settings panel remains visible.
+    } catch (error: any) {
+      Alert.alert("Update Error", error.message || "An error occurred.");
+    }
+  };
+
+  const handleSettingsLogout = async () => {
+    try {
+      await auth.signOut();
+      resetProfileFields();
+      setUser(null);
+      setThemeName("Dark");
+      Alert.alert("Success", "Logged out successfully!");
+      setSettingsVisible(false);
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "An error occurred.");
+    }
+  };
+
+  const handleSettingsDelete = () => {
+    Alert.alert(
+      "Delete Account",
+      "Are you sure you want to delete your account? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            await handleDeleteConfirm();
+            setSettingsVisible(false);
+          },
+        },
+      ]
+    );
+  };
 
   async function handleDeleteConfirm() {
     if (!user || !user.email) {
       Alert.alert("Not logged in", "No user to delete.");
-      return;
-    }
-    if (deleteEmailInput.trim().toLowerCase() !== user.email.toLowerCase()) {
-      Alert.alert("Invalid Email", "Entered email does not match your account email.");
       return;
     }
     try {
@@ -204,41 +166,25 @@ export default function Profile() {
     }
   }
 
-  // ---- IF USER NOT LOGGED IN ----
+  function resetProfileFields() {
+    setUsername("");
+    setBannerColor("#333333");
+    setPhotoURL(null);
+    setBestPerfectTime(null);
+    setGamesPlayed(null);
+    setLocalThemeName("Dark");
+    setThemeName("Dark");
+  }
+
+  // ---- IF USER NOT LOGGED IN, SHOW AUTH COMPONENT ----
   if (!user) {
-    return (
-      <View style={[styles.container, { backgroundColor: THEMES.Dark.background }]}>
-        <View style={styles.authContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            placeholderTextColor="#cccccc"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#cccccc"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-          <Button title={isSignUp ? "Sign Up" : "Log In"} onPress={handleAuthAction} />
-          <Text style={styles.toggleText} onPress={() => setIsSignUp((prev) => !prev)}>
-            {isSignUp ? "Already have an account? Log in" : "Don't have an account? Sign up"}
-          </Text>
-        </View>
-      </View>
-    );
+    return <SignUpIn onAuthSuccess={() => setUser(auth.currentUser)} />;
   }
 
   const themeStyles = {
     backgroundColor: currentTheme.background,
     textColor: currentTheme.text,
-    cardColor: currentTheme.surface,
+    primary: currentTheme.primary,
   };
 
   return (
@@ -249,10 +195,7 @@ export default function Profile() {
         <View
           style={[
             styles.profileImageWrapper,
-            {
-              left: isMobile ? "50%" : 20,
-              transform: isMobile ? [{ translateX: -40 }] : [],
-            },
+            { left: isMobile ? "50%" : 20, transform: isMobile ? [{ translateX: -40 }] : [] },
           ]}
         >
           {photoURL ? (
@@ -261,9 +204,13 @@ export default function Profile() {
             <View style={[styles.profileImage, { backgroundColor: "#999" }]} />
           )}
         </View>
+        {/* Paintbrush Icon to Open BannerChange Modal */}
+        <TouchableOpacity style={styles.paintbrushIcon} onPress={() => setShowBannerChange(true)}>
+          <Ionicons name="color-palette-outline" size={28} color="#fff" />
+        </TouchableOpacity>
       </View>
 
-      {/* Profile Info */}
+      {/* Profile Info & Stats */}
       <ScrollView contentContainerStyle={styles.infoContainer}>
         <Text style={[styles.text, { color: themeStyles.textColor }]}>
           {username ? `Welcome, ${username}!` : `Welcome, ${user.email}`}
@@ -275,22 +222,15 @@ export default function Profile() {
           Best Perfect Time: {bestPerfectTime ?? "--"}
         </Text>
 
-        {/* Customize Profile */}
+        {/* In-Page Appearance Customization: Banner Color & Profile Picture */}
         <View style={{ marginVertical: 8 }}>
           <Button
-            title={showCustom ? "Hide Customization" : "Customize Profile"}
+            title={showCustom ? "Hide Appearance Options" : "Customize Appearance"}
             onPress={() => setShowCustom(!showCustom)}
           />
         </View>
-
         {showCustom && (
           <View>
-            <Text style={[styles.label, { color: themeStyles.textColor }]}>Username:</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: themeStyles.backgroundColor, color: themeStyles.textColor }]}
-              value={username}
-              onChangeText={setUsername}
-            />
             <Text style={[styles.label, { color: themeStyles.textColor }]}>Banner Color (hex):</Text>
             <TextInput
               style={[styles.input, { backgroundColor: themeStyles.backgroundColor, color: themeStyles.textColor }]}
@@ -301,71 +241,39 @@ export default function Profile() {
             <TextInput
               style={[styles.input, { backgroundColor: themeStyles.backgroundColor, color: themeStyles.textColor }]}
               value={photoURL || ""}
-              onChangeText={(val) => setPhotoURL(val)}
+              onChangeText={setPhotoURL}
             />
-            <Text style={[styles.label, { color: themeStyles.textColor }]}>Theme:</Text>
-            <View style={styles.themeRow}>
-              {Object.keys(THEMES).map((key) => (
-                <TouchableOpacity
-                  key={key}
-                  style={[
-                    styles.themeOption,
-                    {
-                      borderColor: key === localThemeName ? currentTheme.primary : "gray",
-                      backgroundColor: THEMES[key as keyof typeof THEMES].background,
-                    },
-                  ]}
-                  onPress={() => {
-                    const newTheme = key as keyof typeof THEMES;
-                    setLocalThemeName(newTheme);
-                    setThemeName(newTheme);
-                  }}
-                >
-                  <Text style={{ color: THEMES[key as keyof typeof THEMES].text, fontFamily: "Parkinsans" }}>
-                    {key}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <Button title="Update Profile" onPress={handleUpdateProfile} />
-          </View>
-        )}
-
-        {/* Button Row for Logout & Delete Account */}
-        <View style={styles.buttonRow}>
-          <View style={styles.buttonContainer}>
-            <Button title="Logout" onPress={handleLogout} />
-          </View>
-          <View style={styles.buttonContainer}>
-            {!showDeleteConfirm ? (
-              <Button title="Delete Account" color="red" onPress={toggleDeleteConfirm} />
-            ) : null}
-          </View>
-        </View>
-
-        {showDeleteConfirm && (
-          <View style={styles.deleteContainer}>
-            <Text style={[styles.label, { color: themeStyles.textColor }]}>
-              Type your email to confirm account deletion:
-            </Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: themeStyles.backgroundColor, color: themeStyles.textColor }]}
-              placeholder="Enter your email"
-              value={deleteEmailInput}
-              onChangeText={setDeleteEmailInput}
-            />
-            <View style={styles.buttonRow}>
-              <View style={styles.buttonContainer}>
-                <Button title="Cancel" onPress={toggleDeleteConfirm} />
-              </View>
-              <View style={styles.buttonContainer}>
-                <Button title="Confirm Delete" color="red" onPress={handleDeleteConfirm} />
-              </View>
-            </View>
+            <Button title="Update Appearance" onPress={handleUpdateCustomization} />
           </View>
         )}
       </ScrollView>
-      <IconButton icon="cog" size={24} onPress={() => {}} iconColor={currentTheme.primary} />
+
+      {/* Settings Icon */}
+      <TouchableOpacity style={styles.settingsIcon} onPress={() => setSettingsVisible(true)}>
+        <Ionicons name="settings-outline" size={28} color={themeStyles.primary} />
+      </TouchableOpacity>
+
+      {/* Sliding Settings Panel */}
+      <UserSettings
+        visible={settingsVisible}
+        initialUsername={username}
+        initialTheme={localThemeName}
+        onUpdateProfile={handleSettingsUpdate}
+        onLogout={handleSettingsLogout}
+        onDeleteAccount={handleSettingsDelete}
+        onClose={() => setSettingsVisible(false)}
+      />
+
+      {/* BannerChange Modal */}
+      <BannerChange
+        visible={showBannerChange}
+        initialColor={bannerColor}
+        onCancel={() => setShowBannerChange(false)}
+        onConfirm={(color) => {
+          setBannerColor(color);
+          setShowBannerChange(false);
+        }}
+      />
     </View>
   );
 }
@@ -374,12 +282,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  authContainer: {
-    padding: 16,
-  },
   bannerContainer: {
     width: "100%",
     height: 200,
+    position: "relative",
   },
   banner: {
     width: "100%",
@@ -426,39 +332,17 @@ const styles = StyleSheet.create({
     width: "100%",
     fontFamily: "Parkinsans",
   },
-  themeRow: {
-    flexDirection: "row",
-    marginVertical: 8,
-    flexWrap: "wrap",
-    justifyContent: "space-around",
+  settingsIcon: {
+    position: "absolute",
+    bottom: 20,
+    right: 20,
   },
-  themeOption: {
-    width: 80,
-    height: 40,
-    margin: 4,
-    borderWidth: 2,
-    borderRadius: 4,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  toggleText: {
-    marginTop: 10,
-    fontSize: 14,
-    textDecorationLine: "underline",
-    textAlign: "center",
-    color: "#fff",
-    fontFamily: "Parkinsans",
-  },
-  buttonRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginVertical: 16,
-  },
-  buttonContainer: {
-    flex: 1,
-    marginHorizontal: 8,
-  },
-  deleteContainer: {
-    marginTop: 16,
+  paintbrushIcon: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    padding: 6,
+    borderRadius: 20,
   },
 });

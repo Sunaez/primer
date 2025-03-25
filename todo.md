@@ -21,16 +21,11 @@
         * ~~Also move the style from rows into larger square shapes and on hover, it expands and displays a video of how the game works~~
 
 
--> So far I got the front end functional but the backend needs more work
-gonna need to upgrade to blaze to upload a certain function, or look at other methods
-of implmenting it.
-
-
+* Change the freeplay section to use expo-video instead of expo-av
 
 1. Write the code for each game to collect the data thats used to make sure it records their scores
 
 
-* Make the games list a seperate .ts file array so you only have to change it there
 
 ## Front End
 ### Game related

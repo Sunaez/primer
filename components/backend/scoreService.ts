@@ -1,11 +1,5 @@
 import { auth, db } from "@/components/firebaseConfig";
-import {
-  collection,
-  doc,
-  addDoc,
-  setDoc,
-  Timestamp,
-} from "firebase/firestore";
+import { collection, doc, addDoc, setDoc } from "firebase/firestore";
 
 interface BaseScoreData {
   gameName: string;    
@@ -37,32 +31,40 @@ export async function uploadGameScore(data: GameScoreData): Promise<string> {
   if (typeof data.score === "number") {
     const dateObj = new Date(data.datePlayed);
     if (!isNaN(dateObj.valueOf())) {
-      const dateString = dateObj.toISOString().split("T")[0];
+      // Format date as MM/DD/YYYY and time as HH:MM:SS (24-hour clock)
+      const dateString = dateObj.toLocaleDateString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
+      });
+      const timeString = dateObj.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      });
 
       // dailyScores/{gameName}/scores/{userId_date}
-      const dailyScoresCollectionRef = collection(
-        db,
-        "dailyScores",
-        data.gameName,
-        "scores"
-      );
-      const dailyDocId = `${userId}_${dateString}`;
+      const dailyScoresCollectionRef = collection(db, "dailyScores", data.gameName, "scores");
+      // Replace slashes in dateString if necessary for doc id; using dashes here.
+      const dailyDocId = `${userId}_${dateString.replace(/\//g, "-")}`;
       await addScoreToCollection(
         doc(dailyScoresCollectionRef, dailyDocId),
         data,
         userId,
-        dateString
+        dateString,
+        timeString
       );
 
       // bestScores/{gameName}/scores/{userId}
-      const bestScoresCollectionRef = collection(
-        db,
-        "bestScores",
-        data.gameName,
-        "scores"
+      const bestScoresCollectionRef = collection(db, "bestScores", data.gameName, "scores");
+      await addScoreToCollection(
+        doc(bestScoresCollectionRef, userId),
+        data,
+        userId,
+        dateString,
+        timeString
       );
-      await addScoreToCollection(doc(bestScoresCollectionRef, userId), data, userId);
-
     } else {
       console.warn("Invalid datePlayed; skipping leaderboard update.");
     }
@@ -77,7 +79,8 @@ async function addScoreToCollection(
   docRef: ReturnType<typeof doc>,
   data: GameScoreData,
   userId: string,
-  date?: string
+  dateString: string,
+  timeString: string
 ) {
   await setDoc(
     docRef,
@@ -88,8 +91,8 @@ async function addScoreToCollection(
       accuracy: data.accuracy ?? 0,
       averageTime: data.averageReactionTime ? data.averageReactionTime * 1000 : 0,
       gameName: data.gameName,
-      updatedAt: Timestamp.now(),
-      ...(date ? { date } : {}),
+      date: dateString,
+      time: timeString,
     },
     { merge: true }
   );
