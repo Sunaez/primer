@@ -1,9 +1,10 @@
-// file: components/NavigationBar/DesktopNavBar.tsx
-
-import React, { useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+// /components/NavigationBar/DesktopNavBar.tsx
+import React, { useState, useEffect } from 'react';
+import { View, Text, Pressable, StyleSheet, Image } from 'react-native';
 import { Slot, Link, LinkProps, usePathname } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { getDoc, doc } from 'firebase/firestore';
+import { auth, db } from '@/components/firebaseConfig';
 import THEMES from '@/constants/themes';
 
 type DesktopNavBarProps = {
@@ -18,6 +19,23 @@ const NAV_LINKS = [
 ] as const;
 
 export default function DesktopNavBar({ theme }: DesktopNavBarProps) {
+  const [profilePicture, setProfilePicture] = useState<string | undefined>(undefined);
+
+  // If user is logged in, fetch the user's profile picture from Firestore.
+  useEffect(() => {
+    if (auth.currentUser) {
+      const uid = auth.currentUser.uid;
+      getDoc(doc(db, 'profile', uid))
+        .then((snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+            setProfilePicture(data.photoURL || undefined);
+          }
+        })
+        .catch((error) => console.error('Error fetching profile picture:', error));
+    }
+  }, []);
+
   return (
     <View style={[styles.desktopContainer, { backgroundColor: theme.background }]}>
       <View style={[styles.sideNav, { backgroundColor: theme.surface }]}>
@@ -31,14 +49,11 @@ export default function DesktopNavBar({ theme }: DesktopNavBarProps) {
             href={link.href}
             iconName={link.iconName}
             theme={theme}
+            // For the Profile link, use the fetched profile picture if available
+            profilePicture={link.title === 'Profile' ? profilePicture : undefined}
           />
         ))}
-        <View style={{
-          borderTopColor: theme.divider,
-          borderTopWidth: 1,
-          width: '100%', // Make the line span the entire width of the nav
-          marginTop: 10, // Add some space above the line
-        }} />
+        <View style={styles.divider} />
       </View>
       <View style={[styles.mainContent, { backgroundColor: theme.background }]}>
         <Slot />
@@ -52,19 +67,19 @@ type DesktopNavItemProps = {
   href: LinkProps['href'];
   iconName: keyof typeof Ionicons.glyphMap;
   theme: typeof THEMES[keyof typeof THEMES];
+  profilePicture?: string;
 };
 
-function DesktopNavItem({ title, href, iconName, theme }: DesktopNavItemProps) {
+function DesktopNavItem({ title, href, iconName, theme, profilePicture }: DesktopNavItemProps) {
   const pathname = usePathname();
   const [hovered, setHovered] = useState(false);
 
-  const isActive = pathname.startsWith(typeof href === 'string' ? href : href.pathname);
+  const isActive = pathname.startsWith(typeof href === 'string' ? href : (href as any).pathname);
   const backgroundColor = isActive
     ? theme.selection
     : hovered
     ? theme.hover
     : 'transparent';
-
   const textColor = isActive ? theme.contrast : theme.text;
 
   return (
@@ -76,16 +91,18 @@ function DesktopNavItem({ title, href, iconName, theme }: DesktopNavItemProps) {
           styles.navItemDesktop,
           {
             backgroundColor: pressed ? theme.primary : backgroundColor,
-            borderColor: isActive ? theme.primary : 'transparent', // Border color
-            borderWidth: 2, // Border width
+            borderColor: isActive ? theme.primary : 'transparent',
+            borderWidth: 2,
           },
         ]}
       >
         <View style={styles.navItemContent}>
-          <Ionicons name={iconName} size={40} color={textColor} style={styles.iconStyle} />
-          <Text style={[styles.navTextDesktop, { color: textColor }]}>
-            {title}
-          </Text>
+          {title === 'Profile' && profilePicture ? (
+            <Image source={{ uri: profilePicture }} style={styles.profileIcon} />
+          ) : (
+            <Ionicons name={iconName} size={40} color={textColor} style={styles.iconStyle} />
+          )}
+          <Text style={[styles.navTextDesktop, { color: textColor }]}>{title}</Text>
         </View>
       </Pressable>
     </Link>
@@ -100,14 +117,8 @@ const styles = StyleSheet.create({
   sideNav: {
     width: 256,
     paddingTop: 5,
-    paddingLeft: 16,
-    paddingRight: 16,
     paddingHorizontal: 10,
     alignItems: 'flex-start',
-    gap: 8,
-  },
-  mainContent: {
-    flex: 1,
   },
   logoContainer: {
     marginBottom: 16,
@@ -117,6 +128,15 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 24,
     fontWeight: 'bold',
+  },
+  divider: {
+    borderTopColor: '#ccc',
+    borderTopWidth: 1,
+    width: '100%',
+    marginTop: 10,
+  },
+  mainContent: {
+    flex: 1,
   },
   navItemDesktop: {
     borderRadius: 8,
@@ -128,14 +148,19 @@ const styles = StyleSheet.create({
   navItemContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   iconStyle: {
     width: 40,
     marginRight: 12,
   },
+  profileIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
   navTextDesktop: {
-    fontSize: 20, // Increased font size
+    fontSize: 20,
     fontWeight: '600',
   },
 });

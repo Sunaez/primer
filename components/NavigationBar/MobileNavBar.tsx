@@ -1,18 +1,40 @@
-import React from 'react';
+// /components/NavigationBar/MobileNavBar.tsx
+import React, { useState, useEffect } from 'react';
+import { Image, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
-import { StyleSheet, View, Text } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { getDoc, doc } from 'firebase/firestore';
+import { auth, db } from '@/components/firebaseConfig';
 import THEMES from '@/constants/themes';
-
-// If you prefer, you can define the links in an array. But here, we just map over them directly below.
 
 type MobileNavBarProps = {
   theme: typeof THEMES[keyof typeof THEMES];
 };
 
 export default function MobileNavBar({ theme }: MobileNavBarProps) {
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
+
+  // Fetch profile picture if user is logged in
+  useEffect(() => {
+    if (auth.currentUser) {
+      const uid = auth.currentUser.uid;
+      getDoc(doc(db, 'profile', uid))
+        .then((snap) => {
+          if (snap.exists()) {
+            const data = snap.data();
+            if (data.photoURL) {
+              setProfilePicture(data.photoURL);
+            }
+          }
+        })
+        .catch((error) => console.error('Error fetching profile picture:', error));
+    }
+  }, []);
+
   return (
     <Tabs
       screenOptions={{
+        tabBarShowLabel: false, // Remove text labels
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.secondary,
         tabBarActiveBackgroundColor: theme.selection,
@@ -25,32 +47,14 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
           borderTopColor: theme.border || '#ccc',
         },
         headerShown: false,
-        tabBarItemStyle: {
-          borderRightWidth: 1,
-          borderRightColor: theme.border || '#ccc',
-          alignItems: 'center',
-          justifyContent: 'center',
-        },
-        tabBarIcon: () => null,
-        tabBarIconStyle: { display: 'none' },
       }}
     >
       {/* Daily */}
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Daily',
-          tabBarLabel: ({ focused, color }) => (
-            <View style={styles.tabLabelContainer}>
-              {focused && (
-                <View style={styles.tabLabelIconContainer}>
-                  <Text style={[styles.tabLabelArrow, { color }]}>▲</Text>
-                </View>
-              )}
-              <View style={styles.tabLabelTextContainer}>
-                <Text style={[styles.tabLabelText, { color }]}>Daily</Text>
-              </View>
-            </View>
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="home-sharp" size={50} color={color} />
           ),
         }}
       />
@@ -59,18 +63,8 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
       <Tabs.Screen
         name="freeplay"
         options={{
-          title: 'Freeplay',
-          tabBarLabel: ({ focused, color }) => (
-            <View style={styles.tabLabelContainer}>
-              {focused && (
-                <View style={styles.tabLabelIconContainer}>
-                  <Text style={[styles.tabLabelArrow, { color }]}>▲</Text>
-                </View>
-              )}
-              <View style={styles.tabLabelTextContainer}>
-                <Text style={[styles.tabLabelText, { color }]}>Freeplay</Text>
-              </View>
-            </View>
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="game-controller" size={50} color={color} />
           ),
         }}
       />
@@ -79,18 +73,8 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
       <Tabs.Screen
         name="social"
         options={{
-          title: 'Social',
-          tabBarLabel: ({ focused, color }) => (
-            <View style={styles.tabLabelContainer}>
-              {focused && (
-                <View style={styles.tabLabelIconContainer}>
-                  <Text style={[styles.tabLabelArrow, { color }]}>▲</Text>
-                </View>
-              )}
-              <View style={styles.tabLabelTextContainer}>
-                <Text style={[styles.tabLabelText, { color }]}>Social</Text>
-              </View>
-            </View>
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="people" size={50} color={color} />
           ),
         }}
       />
@@ -99,52 +83,19 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarLabel: ({ focused, color }) => (
-            <View style={styles.tabLabelContainer}>
-              {focused && (
-                <View style={styles.tabLabelIconContainer}>
-                  <Text style={[styles.tabLabelArrow, { color }]}>▲</Text>
-                </View>
-              )}
-              <View style={styles.tabLabelTextContainer}>
-                <Text style={[styles.tabLabelText, { color }]}>Profile</Text>
-              </View>
-            </View>
-          ),
+          tabBarIcon: ({ color }) =>
+            profilePicture ? (
+              <Image
+                source={{ uri: profilePicture }}
+                style={{ width: 50, height: 50, borderRadius: 25 }}
+              />
+            ) : (
+              <Ionicons name="person" size={50} color={color} />
+            ),
         }}
       />
     </Tabs>
   );
 }
 
-const styles = StyleSheet.create({
-  tabLabelContainer: {
-    width: '100%',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabLabelIconContainer: {
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabLabelTextContainer: {
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabLabelArrow: {
-    fontSize: 10,
-    lineHeight: 12,
-    fontFamily: 'Parkinsans',
-    textAlign: 'center',
-  },
-  tabLabelText: {
-    fontSize: 12,
-    marginTop: 2,
-    fontFamily: 'Parkinsans',
-    textAlign: 'center',
-  },
-});
+const styles = StyleSheet.create({});
