@@ -23,6 +23,9 @@
 
 * Change the freeplay section to use expo-video instead of expo-av
 
+* Use more React Native reanimated
+3. Maybe add "react native animated" for some nice animations between everything. 🪇
+
 1. Write the code for each game to collect the data thats used to make sure it records their scores
 
 
@@ -45,7 +48,7 @@
     2. Stats
     3. Make banner colour simpler to adjust
 2. Make some daily games, maybe base the id on the time of day?
-3. Maybe add "react native animated" for some nice animations between everything. 🪇
+
 4. Add pictures to make it more engaging
     * This could be a short picture or a video that actually explains how the game works -D
 5. Daily streak implementation

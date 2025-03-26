@@ -1,37 +1,78 @@
 // /components/profile/BannerChange.tsx
 import React, { useState, useEffect } from "react";
 import { Modal, View, StyleSheet, Text, TouchableOpacity } from "react-native";
-import { ColorPicker, fromHsv } from "react-native-color-picker";
+import ReanimatedColorPicker, { Panel1, HueSlider } from "reanimated-color-picker";
+import { auth, db } from "@/components/firebaseConfig";
+import { doc, updateDoc } from "firebase/firestore";
 
-type BannerChangeProps = {
+interface BannerChangeProps {
   visible: boolean;
   initialColor: string;
   onCancel: () => void;
   onConfirm: (color: string) => void;
-};
+}
 
-export default function BannerChange({ visible, initialColor, onCancel, onConfirm }: BannerChangeProps) {
-  const [selectedColor, setSelectedColor] = useState(initialColor);
+export default function BannerChange({
+  visible,
+  initialColor,
+  onCancel,
+  onConfirm,
+}: BannerChangeProps) {
+  const [selectedColor, setSelectedColor] = useState<string>(initialColor);
 
+  // Reset the selected color whenever the modal is shown
   useEffect(() => {
-    setSelectedColor(initialColor);
+    if (visible) {
+      setSelectedColor(initialColor);
+    }
   }, [initialColor, visible]);
 
+  // Called whenever the picker's color changes
+  const handleColorChange = (colors: { hex: string }) => {
+    setSelectedColor(colors.hex);
+  };
+
+  // When Confirm is pressed, update the bannerColor field in the database
+  const handleConfirm = async () => {
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      const uid = currentUser.uid;
+      try {
+        await updateDoc(doc(db, "profile", uid), { bannerColor: selectedColor });
+        onConfirm(selectedColor);
+      } catch (error) {
+        console.error("Error updating banner color:", error);
+      }
+    }
+  };
+
   return (
-    <Modal visible={visible} animationType="slide" transparent={true}>
+    <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>
-          <Text style={styles.title}>Select Banner Color</Text>
-          <ColorPicker
-            defaultColor={initialColor}
-            onColorChange={(color) => setSelectedColor(fromHsv(color))}
+          <Text style={styles.title}>Customize Your Banner</Text>
+
+          {/* Preview of the currently selected color */}
+          <View style={[styles.previewBanner, { backgroundColor: selectedColor }]} />
+
+          {/* Reanimated color picker with color wheel and hue slider */}
+          <ReanimatedColorPicker
+            value={selectedColor}
+            onChange={handleColorChange}
             style={styles.colorPicker}
-          />
+          >
+            {/* The color wheel */}
+            <Panel1 style={styles.panel} />
+            {/* A hue slider below the wheel */}
+            <HueSlider style={styles.slider} />
+          </ReanimatedColorPicker>
+
+          {/* Buttons to cancel or confirm */}
           <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.button} onPress={onCancel}>
+            <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={onCancel}>
               <Text style={styles.buttonText}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.button} onPress={() => onConfirm(selectedColor)}>
+            <TouchableOpacity style={[styles.button, styles.confirmButton]} onPress={handleConfirm}>
               <Text style={styles.buttonText}>Confirm</Text>
             </TouchableOpacity>
           </View>
@@ -44,39 +85,67 @@ export default function BannerChange({ visible, initialColor, onCancel, onConfir
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
     justifyContent: "center",
     alignItems: "center",
   },
   modalContainer: {
     width: "90%",
-    height: "70%",
     backgroundColor: "#fff",
-    borderRadius: 10,
-    padding: 16,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
   },
   title: {
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 22,
+    fontWeight: "700",
     marginBottom: 12,
     textAlign: "center",
+    color: "#333",
+  },
+  previewBanner: {
+    width: "100%",
+    height: 50,
+    borderRadius: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#ccc",
   },
   colorPicker: {
-    flex: 1,
+    marginBottom: 20,
+  },
+  panel: {
+    width: "100%",
+    height: 200,
+  },
+  slider: {
+    marginTop: 16,
+    height: 30,
   },
   buttonRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    marginTop: 12,
+    justifyContent: "space-between",
   },
   button: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: "#007AFF",
-    borderRadius: 5,
+    flex: 1,
+    paddingVertical: 14,
+    marginHorizontal: 5,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  cancelButton: {
+    backgroundColor: "#E57373",
+  },
+  confirmButton: {
+    backgroundColor: "#81C784",
   },
   buttonText: {
     color: "#fff",
-    fontWeight: "bold",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

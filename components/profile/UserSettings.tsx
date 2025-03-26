@@ -1,16 +1,22 @@
-import React, { useState, useEffect, useRef } from "react";
+// /components/profile/UserSettings.tsx
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TextInput,
-  Button,
   TouchableOpacity,
-  Animated,
   Dimensions,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import THEMES from "@/constants/themes";
+import { useThemeContext } from "@/context/ThemeContext";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+} from "react-native-reanimated";
 
 type UserSettingsProps = {
   visible: boolean;
@@ -34,60 +40,94 @@ const UserSettings: React.FC<UserSettingsProps> = ({
   const [username, setUsername] = useState(initialUsername);
   const [selectedTheme, setSelectedTheme] = useState(initialTheme);
 
-  // Animated value for the slide-up effect
-  const slideAnim = useRef(new Animated.Value(0)).current;
+  // Get the current theme from context.
+  const { themeName } = useThemeContext();
+  const currentTheme = THEMES[themeName] || THEMES.Dark;
+
   const screenHeight = Dimensions.get("window").height;
+  // Shared value for slide animation.
+  const translateY = useSharedValue(screenHeight);
 
-  // Effect to automatically update profile when username or theme changes
-  useEffect(() => {
-    // Only update if the values are different from initial values
-    if (username !== initialUsername || selectedTheme !== initialTheme) {
-      onUpdateProfile(username, selectedTheme);
-    }
-  }, [username, selectedTheme, initialUsername, initialTheme, onUpdateProfile]);
+  // Animated style using reanimated.
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
 
+  // When modal opens/closes, update state and animate.
   useEffect(() => {
     if (visible) {
-      // Reset inputs when opened
       setUsername(initialUsername);
       setSelectedTheme(initialTheme);
-      Animated.timing(slideAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
+      translateY.value = withTiming(0, {
+        duration: 340,
+        easing: Easing.inOut(Easing.quad),
+      });
     } else {
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
+      translateY.value = withTiming(screenHeight, {
+        duration: 340,
+        easing: Easing.inOut(Easing.quad),
+      });
     }
-  }, [visible, initialUsername, initialTheme, slideAnim]);
+  }, [visible, initialUsername, initialTheme, screenHeight, translateY]);
 
-  const translateY = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [screenHeight, 0],
-  });
+  // When a theme button is pressed, update the theme immediately.
+  const handleThemeSelect = (theme: keyof typeof THEMES) => {
+    setSelectedTheme(theme);
+    onUpdateProfile(username, theme);
+  };
+
+  // When the user closes the modal via the X button, update username if changed.
+  const handleClose = () => {
+    if (username !== initialUsername) {
+      onUpdateProfile(username, selectedTheme);
+    }
+    onClose();
+  };
+
+  // When logging out, update username if needed then log out.
+  const handleLogout = () => {
+    if (username !== initialUsername) {
+      onUpdateProfile(username, selectedTheme);
+    }
+    onLogout();
+  };
 
   return (
-    <Animated.View style={[styles.container, { transform: [{ translateY }] }]}>
+    <Animated.View
+      style={[
+        styles.container,
+        animatedStyle,
+        { backgroundColor: currentTheme.background },
+      ]}
+    >
       <View style={styles.header}>
-        <Text style={styles.headerText}>Settings</Text>
-        <TouchableOpacity onPress={onClose}>
-          <Ionicons name="close" size={28} color="#333" />
+        <Text style={[styles.headerText, { color: currentTheme.text }]}>
+          Settings
+        </Text>
+        <TouchableOpacity onPress={handleClose}>
+          <Ionicons name="close" size={28} color={currentTheme.text} />
         </TouchableOpacity>
       </View>
       <View style={styles.content}>
-        <Text style={styles.label}>Username:</Text>
+        <Text style={[styles.label, { color: currentTheme.text }]}>
+          Username:
+        </Text>
         <TextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              backgroundColor: currentTheme.background,
+              color: currentTheme.text,
+              borderColor: currentTheme.primary,
+            },
+          ]}
           value={username}
           onChangeText={setUsername}
           placeholder="Enter username"
+          placeholderTextColor={currentTheme.text}
         />
 
-        <Text style={styles.label}>Theme:</Text>
+        <Text style={[styles.label, { color: currentTheme.text }]}>Theme:</Text>
         <View style={styles.themeContainer}>
           {Object.keys(THEMES).map((key) => (
             <TouchableOpacity
@@ -99,12 +139,17 @@ const UserSettings: React.FC<UserSettingsProps> = ({
                     key === selectedTheme
                       ? THEMES[key as keyof typeof THEMES].primary
                       : "gray",
-                  backgroundColor: THEMES[key as keyof typeof THEMES].background,
+                  backgroundColor:
+                    THEMES[key as keyof typeof THEMES].background,
                 },
               ]}
-              onPress={() => setSelectedTheme(key as keyof typeof THEMES)}
+              onPress={() => handleThemeSelect(key as keyof typeof THEMES)}
             >
-              <Text style={{ color: THEMES[key as keyof typeof THEMES].text }}>
+              <Text
+                style={{
+                  color: THEMES[key as keyof typeof THEMES].text,
+                }}
+              >
                 {key}
               </Text>
             </TouchableOpacity>
@@ -112,8 +157,21 @@ const UserSettings: React.FC<UserSettingsProps> = ({
         </View>
 
         <View style={styles.buttonRow}>
-          <Button title="Log Out" onPress={onLogout} />
-          <Button title="Delete Account" color="red" onPress={onDeleteAccount} />
+          <TouchableOpacity
+            onPress={handleLogout}
+            style={[
+              styles.actionButton,
+              { backgroundColor: currentTheme.primary },
+            ]}
+          >
+            <Text style={styles.actionButtonText}>Log Out</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onDeleteAccount}
+            style={[styles.actionButton, { backgroundColor: "red" }]}
+          >
+            <Text style={styles.actionButtonText}>Delete Account</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Animated.View>
@@ -128,7 +186,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "#fff",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 16,
@@ -154,7 +211,6 @@ const styles = StyleSheet.create({
   },
   input: {
     height: 40,
-    borderColor: "#ccc",
     borderWidth: 1,
     borderRadius: 5,
     paddingHorizontal: 8,
@@ -178,5 +234,14 @@ const styles = StyleSheet.create({
     marginTop: 16,
     flexDirection: "row",
     justifyContent: "space-around",
+  },
+  actionButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 5,
+  },
+  actionButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
   },
 });

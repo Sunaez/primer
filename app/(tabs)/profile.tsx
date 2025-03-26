@@ -46,8 +46,36 @@ export default function Profile() {
   const screenWidth = Dimensions.get("window").width;
   const isMobile = screenWidth < 768;
 
-  // ---- FETCH PROFILE DOC ----
-  async function fetchUserProfile() {
+  // ---- FETCH USER PREFERRED THEME ----
+  async function fetchUserPreferredTheme() {
+    if (auth.currentUser) {
+      const uid = auth.currentUser.uid;
+      try {
+        const snap = await getDoc(doc(db, "profile", uid));
+        if (snap.exists()) {
+          const data = snap.data();
+          const userTheme = data.theme || "Dark";
+          setLocalThemeName(userTheme);
+          setThemeName(userTheme);
+        } else {
+          console.log("Profile doc not found, defaulting to Dark theme.");
+          setThemeName("Dark");
+          setLocalThemeName("Dark");
+        }
+      } catch (error) {
+        console.error("Error fetching theme:", error);
+        setThemeName("Dark");
+        setLocalThemeName("Dark");
+      }
+    } else {
+      console.log("No user logged in, defaulting to Dark theme.");
+      setThemeName("Dark");
+      setLocalThemeName("Dark");
+    }
+  }
+
+  // ---- FETCH PROFILE DOC (excluding theme, which is fetched above) ----
+  async function fetchUserProfileData() {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
     const snap = await getDoc(doc(db, "profile", uid));
@@ -56,21 +84,24 @@ export default function Profile() {
       setUsername(data.username || "");
       setBannerColor(data.bannerColor || "#333333");
       setPhotoURL(data.photoURL || null);
-      const userTheme = data.theme || "Dark";
-      setLocalThemeName(userTheme);
-      setThemeName(userTheme);
       if (data.stats) {
         setBestPerfectTime(data.stats.bestPerfectTime);
         setGamesPlayed(data.stats.gamesPlayed);
       }
     } else {
-      console.log("Profile doc not found");
+      console.log("Profile doc not found (data)");
     }
   }
 
+  // useEffect(() => {
+  //   // 1. See the user's preferred theme and apply it
+  //   fetchUserPreferredTheme();
+  // },); // Run only once on component mount
+
   useEffect(() => {
+    // 2. Fetch other profile data after user is authenticated
     if (user) {
-      fetchUserProfile();
+      fetchUserProfileData();
     }
   }, [user]);
 
@@ -98,22 +129,27 @@ export default function Profile() {
     newUsername: string,
     newTheme: keyof typeof THEMES
   ) => {
+    console.log("handleSettingsUpdate called with:", { newUsername, newTheme });
     if (!user) {
       Alert.alert("Not logged in", "Log in to update your profile.");
       return;
     }
     const uid = user.uid;
+    console.log("Updating theme for user:", uid, "to:", newTheme);
     try {
       await updateDoc(doc(db, "profile", uid), {
         username: newUsername,
         theme: newTheme,
       });
+      console.log("Firebase update successful for theme:", newTheme);
       setUsername(newUsername);
       setLocalThemeName(newTheme);
       setThemeName(newTheme);
+      console.log("Local theme states updated to:", newTheme);
       Alert.alert("Profile Updated", "Your profile has been updated!");
       // Settings panel remains visible.
     } catch (error: any) {
+      console.error("Error updating profile:", error);
       Alert.alert("Update Error", error.message || "An error occurred.");
     }
   };
@@ -178,8 +214,19 @@ export default function Profile() {
 
   // ---- IF USER NOT LOGGED IN, SHOW AUTH COMPONENT ----
   if (!user) {
-    return <SignUpIn onAuthSuccess={() => setUser(auth.currentUser)} />;
+    return (
+      <SignUpIn
+        onAuthSuccess={async () => {
+          const currentUser = auth.currentUser;
+          setUser(currentUser);
+          if (currentUser) {
+            await fetchUserPreferredTheme();
+          }
+        }}
+      />
+    );
   }
+  
 
   const themeStyles = {
     backgroundColor: currentTheme.background,
