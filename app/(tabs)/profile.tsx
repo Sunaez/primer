@@ -1,10 +1,9 @@
-// Profile.tsx
+// /components/profile/Profile.tsx
 import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
   Image,
-  TextInput,
   Button,
   Alert,
   TouchableOpacity,
@@ -20,6 +19,7 @@ import THEMES from "@/constants/themes";
 import UserSettings from "@/components/profile/UserSettings";
 import SignUpIn from "@/components/profile/SignUp-In";
 import BannerChange from "@/components/profile/BannerChange";
+import PictureChange from "@/components/profile/PictureChange";
 
 export default function Profile() {
   // ---- THEME HOOKS ----
@@ -38,9 +38,9 @@ export default function Profile() {
   const [gamesPlayed, setGamesPlayed] = useState<number | null>(null);
 
   // Toggles & Panel Visibility
-  const [showCustom, setShowCustom] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [showBannerChange, setShowBannerChange] = useState(false);
+  const [showPictureChange, setShowPictureChange] = useState(false);
 
   // Responsive layout
   const screenWidth = Dimensions.get("window").width;
@@ -93,13 +93,7 @@ export default function Profile() {
     }
   }
 
-  // useEffect(() => {
-  //   // 1. See the user's preferred theme and apply it
-  //   fetchUserPreferredTheme();
-  // },); // Run only once on component mount
-
   useEffect(() => {
-    // 2. Fetch other profile data after user is authenticated
     if (user) {
       fetchUserProfileData();
     }
@@ -118,7 +112,6 @@ export default function Profile() {
         photoURL,
       });
       Alert.alert("Profile Updated", "Your appearance has been updated!");
-      setShowCustom(false);
     } catch (error: any) {
       Alert.alert("Update Error", error.message || "An error occurred.");
     }
@@ -129,25 +122,20 @@ export default function Profile() {
     newUsername: string,
     newTheme: keyof typeof THEMES
   ) => {
-    console.log("handleSettingsUpdate called with:", { newUsername, newTheme });
     if (!user) {
       Alert.alert("Not logged in", "Log in to update your profile.");
       return;
     }
     const uid = user.uid;
-    console.log("Updating theme for user:", uid, "to:", newTheme);
     try {
       await updateDoc(doc(db, "profile", uid), {
         username: newUsername,
         theme: newTheme,
       });
-      console.log("Firebase update successful for theme:", newTheme);
       setUsername(newUsername);
       setLocalThemeName(newTheme);
       setThemeName(newTheme);
-      console.log("Local theme states updated to:", newTheme);
       Alert.alert("Profile Updated", "Your profile has been updated!");
-      // Settings panel remains visible.
     } catch (error: any) {
       console.error("Error updating profile:", error);
       Alert.alert("Update Error", error.message || "An error occurred.");
@@ -212,7 +200,6 @@ export default function Profile() {
     setThemeName("Dark");
   }
 
-  // ---- IF USER NOT LOGGED IN, SHOW AUTH COMPONENT ----
   if (!user) {
     return (
       <SignUpIn
@@ -226,7 +213,6 @@ export default function Profile() {
       />
     );
   }
-  
 
   const themeStyles = {
     backgroundColor: currentTheme.background,
@@ -235,30 +221,37 @@ export default function Profile() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: themeStyles.backgroundColor }]}>
-      {/* Banner Section */}
-      <View style={styles.bannerContainer}>
-        <View style={[styles.banner, { backgroundColor: bannerColor }]} />
-        <View
-          style={[
-            styles.profileImageWrapper,
-            { left: isMobile ? "50%" : 20, transform: isMobile ? [{ translateX: -40 }] : [] },
-          ]}
-        >
+    <ScrollView
+      style={[styles.container, { backgroundColor: themeStyles.backgroundColor }]}
+      contentContainerStyle={styles.scrollContentContainer}
+    >
+      {/* Header Section */}
+      <View style={styles.headerContainer}>
+        <View style={[styles.bannerContainer, { backgroundColor: bannerColor }]} />
+        <View style={styles.profileImageWrapper}>
           {photoURL ? (
             <Image source={{ uri: photoURL }} style={styles.profileImage} resizeMode="cover" />
           ) : (
             <View style={[styles.profileImage, { backgroundColor: "#999" }]} />
           )}
+          <TouchableOpacity style={styles.pictureIcon} onPress={() => setShowPictureChange(true)}>
+            <Ionicons name="image-outline" size={24} color="#fff" />
+          </TouchableOpacity>
         </View>
-        {/* Paintbrush Icon to Open BannerChange Modal */}
+
+        {/* Settings Button at Bottom Right of Banner */}
+        <TouchableOpacity style={styles.settingsIconBanner} onPress={() => setSettingsVisible(true)}>
+          <Ionicons name="settings-outline" size={28} color="#fff" />
+        </TouchableOpacity>
+
+        {/* Paintbrush Icon for BannerChange */}
         <TouchableOpacity style={styles.paintbrushIcon} onPress={() => setShowBannerChange(true)}>
           <Ionicons name="color-palette-outline" size={28} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      {/* Profile Info & Stats */}
-      <ScrollView contentContainerStyle={styles.infoContainer}>
+      {/* Scrollable Content */}
+      <View style={styles.infoContainer}>
         <Text style={[styles.text, { color: themeStyles.textColor }]}>
           {username ? `Welcome, ${username}!` : `Welcome, ${user.email}`}
         </Text>
@@ -269,38 +262,19 @@ export default function Profile() {
           Best Perfect Time: {bestPerfectTime ?? "--"}
         </Text>
 
-        {/* In-Page Appearance Customization: Banner Color & Profile Picture */}
-        <View style={{ marginVertical: 8 }}>
-          <Button
-            title={showCustom ? "Hide Appearance Options" : "Customize Appearance"}
-            onPress={() => setShowCustom(!showCustom)}
-          />
+        {/* More Content */}
+        <View style={styles.moreContent}>
+          <Text style={[styles.text, { color: themeStyles.textColor }]}>More Stats</Text>
+          <Text style={{ color: themeStyles.textColor }}>
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur congue, nunc vel vehicula suscipit, elit nulla congue mauris, eget pulvinar magna dolor nec magna.
+          </Text>
         </View>
-        {showCustom && (
-          <View>
-            <Text style={[styles.label, { color: themeStyles.textColor }]}>Banner Color (hex):</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: themeStyles.backgroundColor, color: themeStyles.textColor }]}
-              value={bannerColor}
-              onChangeText={setBannerColor}
-            />
-            <Text style={[styles.label, { color: themeStyles.textColor }]}>Profile Picture URL:</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: themeStyles.backgroundColor, color: themeStyles.textColor }]}
-              value={photoURL || ""}
-              onChangeText={setPhotoURL}
-            />
-            <Button title="Update Appearance" onPress={handleUpdateCustomization} />
-          </View>
-        )}
-      </ScrollView>
+      </View>
 
-      {/* Settings Icon */}
-      <TouchableOpacity style={styles.settingsIcon} onPress={() => setSettingsVisible(true)}>
-        <Ionicons name="settings-outline" size={28} color={themeStyles.primary} />
-      </TouchableOpacity>
+      {/* Spacing at bottom */}
+      <View style={{ height: 40 }} />
 
-      {/* Sliding Settings Panel */}
+      {/* Modals */}
       <UserSettings
         visible={settingsVisible}
         initialUsername={username}
@@ -310,8 +284,6 @@ export default function Profile() {
         onDeleteAccount={handleSettingsDelete}
         onClose={() => setSettingsVisible(false)}
       />
-
-      {/* BannerChange Modal */}
       <BannerChange
         visible={showBannerChange}
         initialColor={bannerColor}
@@ -321,7 +293,16 @@ export default function Profile() {
           setShowBannerChange(false);
         }}
       />
-    </View>
+      <PictureChange
+        visible={showPictureChange}
+        initialPhotoURL={photoURL}
+        onCancel={() => setShowPictureChange(false)}
+        onConfirm={(newPhotoURL) => {
+          setPhotoURL(newPhotoURL);
+          setShowPictureChange(false);
+        }}
+      />
+    </ScrollView>
   );
 }
 
@@ -329,60 +310,48 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  bannerContainer: {
+  scrollContentContainer: {
+    paddingBottom: 40,
+  },
+  headerContainer: {
     width: "100%",
-    height: 200,
+    height: 250,
     position: "relative",
   },
-  banner: {
+  bannerContainer: {
     width: "100%",
     height: "100%",
   },
   profileImageWrapper: {
     position: "absolute",
-    bottom: -40,
+    bottom: -50,
+    left: 20,
+    zIndex: 100,
   },
   profileImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 2,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
     borderColor: "#fff",
   },
-  infoContainer: {
-    padding: 16,
-    paddingTop: 56,
-  },
-  text: {
-    fontSize: 18,
-    fontFamily: "Parkinsans",
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  statsText: {
-    fontSize: 15,
-    fontFamily: "Parkinsans",
-    marginBottom: 2,
-  },
-  label: {
-    marginTop: 10,
-    fontSize: 14,
-    fontFamily: "Parkinsans",
-  },
-  input: {
-    height: 40,
-    borderColor: "#ccc",
-    borderWidth: 1,
-    borderRadius: 5,
-    marginVertical: 6,
-    paddingHorizontal: 8,
-    width: "100%",
-    fontFamily: "Parkinsans",
-  },
-  settingsIcon: {
+  pictureIcon: {
     position: "absolute",
-    bottom: 20,
-    right: 20,
+    bottom: 0,
+    right: 0,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    padding: 8,
+    borderRadius: 20,
+    zIndex: 200,
+  },
+  settingsIconBanner: {
+    position: "absolute",
+    bottom: 10,
+    right: 10,
+    zIndex: 300,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    padding: 8,
+    borderRadius: 20,
   },
   paintbrushIcon: {
     position: "absolute",
@@ -391,5 +360,21 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.4)",
     padding: 6,
     borderRadius: 20,
+  },
+  infoContainer: {
+    marginTop: 50,
+    paddingHorizontal: 16,
+  },
+  text: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginVertical: 8,
+  },
+  statsText: {
+    fontSize: 14,
+    marginBottom: 2,
+  },
+  moreContent: {
+    marginTop: 20,
   },
 });

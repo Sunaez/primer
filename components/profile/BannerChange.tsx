@@ -4,6 +4,8 @@ import { Modal, View, StyleSheet, Text, TouchableOpacity } from "react-native";
 import ReanimatedColorPicker, { Panel1, HueSlider } from "reanimated-color-picker";
 import { auth, db } from "@/components/firebaseConfig";
 import { doc, updateDoc } from "firebase/firestore";
+import { useThemeContext } from "@/context/ThemeContext";
+import THEMES from "@/constants/themes";
 
 interface BannerChangeProps {
   visible: boolean;
@@ -19,6 +21,10 @@ export default function BannerChange({
   onConfirm,
 }: BannerChangeProps) {
   const [selectedColor, setSelectedColor] = useState<string>(initialColor);
+  
+  // Get current theme from context
+  const { themeName } = useThemeContext();
+  const currentTheme = THEMES[themeName] || THEMES.Dark;
 
   // Reset the selected color whenever the modal is shown
   useEffect(() => {
@@ -49,11 +55,18 @@ export default function BannerChange({
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.overlay}>
-        <View style={styles.modalContainer}>
-          <Text style={styles.title}>Customize Your Banner</Text>
+        <View style={[styles.modalContainer, { backgroundColor: currentTheme.background }]}>
+          <Text style={[styles.title, { color: currentTheme.text }]}>
+            Customize Your Banner
+          </Text>
 
           {/* Preview of the currently selected color */}
-          <View style={[styles.previewBanner, { backgroundColor: selectedColor }]} />
+          <View
+            style={[
+              styles.previewBanner,
+              { backgroundColor: selectedColor, borderColor: currentTheme.primary },
+            ]}
+          />
 
           {/* Reanimated color picker with color wheel and hue slider */}
           <ReanimatedColorPicker
@@ -70,9 +83,9 @@ export default function BannerChange({
           {/* Buttons to cancel or confirm */}
           <View style={styles.buttonRow}>
             <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={onCancel}>
-              <Text style={styles.buttonText}>Cancel</Text>
+              <Text style={[styles.buttonText, { color: currentTheme.text }]}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.button, styles.confirmButton]} onPress={handleConfirm}>
+            <TouchableOpacity style={[styles.button, styles.confirmButton, { backgroundColor: currentTheme.primary }]} onPress={handleConfirm}>
               <Text style={styles.buttonText}>Confirm</Text>
             </TouchableOpacity>
           </View>
@@ -91,7 +104,6 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: "90%",
-    backgroundColor: "#fff",
     borderRadius: 20,
     padding: 20,
     shadowColor: "#000",
@@ -105,7 +117,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 12,
     textAlign: "center",
-    color: "#333",
   },
   previewBanner: {
     width: "100%",
@@ -113,7 +124,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#ccc",
   },
   colorPicker: {
     marginBottom: 20,
@@ -141,7 +151,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E57373",
   },
   confirmButton: {
-    backgroundColor: "#81C784",
+    // backgroundColor will be overridden by currentTheme.primary inline
   },
   buttonText: {
     color: "#fff",

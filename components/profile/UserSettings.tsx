@@ -1,22 +1,22 @@
 // /components/profile/UserSettings.tsx
 import React, { useState, useEffect } from "react";
 import {
+  Modal,
   View,
-  Text,
   StyleSheet,
-  TextInput,
+  Text,
   TouchableOpacity,
-  Dimensions,
+  TextInput,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import THEMES from "@/constants/themes";
-import { useThemeContext } from "@/context/ThemeContext";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   Easing,
 } from "react-native-reanimated";
+import THEMES from "@/constants/themes";
+import { useThemeContext } from "@/context/ThemeContext";
 
 type UserSettingsProps = {
   visible: boolean;
@@ -28,7 +28,7 @@ type UserSettingsProps = {
   onClose: () => void;
 };
 
-const UserSettings: React.FC<UserSettingsProps> = ({
+export default function UserSettings({
   visible,
   initialUsername,
   initialTheme,
@@ -36,163 +36,180 @@ const UserSettings: React.FC<UserSettingsProps> = ({
   onLogout,
   onDeleteAccount,
   onClose,
-}) => {
+}: UserSettingsProps) {
+  // Local state for username
   const [username, setUsername] = useState(initialUsername);
-  const [selectedTheme, setSelectedTheme] = useState(initialTheme);
+  // Keep track of selected theme in state
+  const [selectedTheme, setSelectedTheme] = useState<keyof typeof THEMES>(
+    initialTheme
+  );
 
-  // Get the current theme from context.
+  // For styling with current theme
   const { themeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
 
-  const screenHeight = Dimensions.get("window").height;
-  // Shared value for slide animation.
-  const translateY = useSharedValue(screenHeight);
+  // Reanimated shared value to control pop-up scale/opacity
+  const scale = useSharedValue(0);
 
-  // Animated style using reanimated.
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-  }));
-
-  // When modal opens/closes, update state and animate.
+  // Animate in/out whenever `visible` changes
   useEffect(() => {
     if (visible) {
+      // Reset local states to the props
       setUsername(initialUsername);
       setSelectedTheme(initialTheme);
-      translateY.value = withTiming(0, {
-        duration: 340,
-        easing: Easing.inOut(Easing.quad),
+
+      // Animate in
+      scale.value = withTiming(1, {
+        duration: 300,
+        easing: Easing.out(Easing.quad),
       });
     } else {
-      translateY.value = withTiming(screenHeight, {
-        duration: 340,
-        easing: Easing.inOut(Easing.quad),
+      // Animate out
+      scale.value = withTiming(0, {
+        duration: 200,
+        easing: Easing.in(Easing.quad),
       });
     }
-  }, [visible, initialUsername, initialTheme, screenHeight, translateY]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
-  // When a theme button is pressed, update the theme immediately.
-  const handleThemeSelect = (theme: keyof typeof THEMES) => {
+  // Reanimated style for container
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: scale.value,
+  }));
+
+  // Immediately apply theme changes
+  const handleSelectTheme = (theme: keyof typeof THEMES) => {
     setSelectedTheme(theme);
+    // Immediately update the theme in the profile
     onUpdateProfile(username, theme);
   };
 
-  // When the user closes the modal via the X button, update username if changed.
-  const handleClose = () => {
-    if (username !== initialUsername) {
-      onUpdateProfile(username, selectedTheme);
-    }
+  // Confirm button applies username changes only
+  const handleConfirmUsername = () => {
+    onUpdateProfile(username, selectedTheme);
     onClose();
   };
 
-  // When logging out, update username if needed then log out.
-  const handleLogout = () => {
-    if (username !== initialUsername) {
-      onUpdateProfile(username, selectedTheme);
-    }
-    onLogout();
-  };
-
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        animatedStyle,
-        { backgroundColor: currentTheme.background },
-      ]}
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none" // We handle animation ourselves
     >
-      <View style={styles.header}>
-        <Text style={[styles.headerText, { color: currentTheme.text }]}>
-          Settings
-        </Text>
-        <TouchableOpacity onPress={handleClose}>
-          <Ionicons name="close" size={28} color={currentTheme.text} />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.content}>
-        <Text style={[styles.label, { color: currentTheme.text }]}>
-          Username:
-        </Text>
-        <TextInput
+      <View style={styles.overlay}>
+        <Animated.View
           style={[
-            styles.input,
-            {
-              backgroundColor: currentTheme.background,
-              color: currentTheme.text,
-              borderColor: currentTheme.primary,
-            },
+            styles.modalContainer,
+            { backgroundColor: currentTheme.background },
+            animatedStyle,
           ]}
-          value={username}
-          onChangeText={setUsername}
-          placeholder="Enter username"
-          placeholderTextColor={currentTheme.text}
-        />
-
-        <Text style={[styles.label, { color: currentTheme.text }]}>Theme:</Text>
-        <View style={styles.themeContainer}>
-          {Object.keys(THEMES).map((key) => (
-            <TouchableOpacity
-              key={key}
-              style={[
-                styles.themeOption,
-                {
-                  borderColor:
-                    key === selectedTheme
-                      ? THEMES[key as keyof typeof THEMES].primary
-                      : "gray",
-                  backgroundColor:
-                    THEMES[key as keyof typeof THEMES].background,
-                },
-              ]}
-              onPress={() => handleThemeSelect(key as keyof typeof THEMES)}
-            >
-              <Text
-                style={{
-                  color: THEMES[key as keyof typeof THEMES].text,
-                }}
-              >
-                {key}
-              </Text>
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={[styles.title, { color: currentTheme.text }]}>
+              Settings
+            </Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={28} color={currentTheme.text} />
             </TouchableOpacity>
-          ))}
-        </View>
+          </View>
 
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            onPress={handleLogout}
+          {/* Content */}
+          <Text style={[styles.label, { color: currentTheme.text }]}>
+            Username:
+          </Text>
+          <TextInput
             style={[
-              styles.actionButton,
-              { backgroundColor: currentTheme.primary },
+              styles.input,
+              {
+                backgroundColor: currentTheme.background,
+                color: currentTheme.text,
+                borderColor: currentTheme.primary,
+              },
             ]}
-          >
-            <Text style={styles.actionButtonText}>Log Out</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={onDeleteAccount}
-            style={[styles.actionButton, { backgroundColor: "red" }]}
-          >
-            <Text style={styles.actionButtonText}>Delete Account</Text>
-          </TouchableOpacity>
-        </View>
+            value={username}
+            onChangeText={setUsername}
+          />
+
+          <Text style={[styles.label, { color: currentTheme.text }]}>
+            Theme:
+          </Text>
+          <View style={styles.themeOptions}>
+            {Object.keys(THEMES).map((key) => {
+              const themeKey = key as keyof typeof THEMES;
+              return (
+                <TouchableOpacity
+                  key={key}
+                  style={[
+                    styles.themeOption,
+                    {
+                      borderColor:
+                        themeKey === selectedTheme
+                          ? currentTheme.primary
+                          : "#999",
+                      backgroundColor: THEMES[themeKey].background,
+                    },
+                  ]}
+                  onPress={() => handleSelectTheme(themeKey)}
+                >
+                  <Text style={{ color: THEMES[themeKey].text }}>{key}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Buttons */}
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={[styles.button, styles.logoutButton]}
+              onPress={onLogout}
+            >
+              <Ionicons name="log-out-outline" size={20} color="#fff" />
+              <Text style={styles.buttonText}>Logout</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, styles.deleteButton]}
+              onPress={onDeleteAccount}
+            >
+              <Ionicons name="trash-outline" size={20} color="#fff" />
+              <Text style={styles.buttonText}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={[styles.button, styles.confirmButton]}
+              onPress={handleConfirmUsername}
+            >
+              <Ionicons name="checkmark-outline" size={20} color="#fff" />
+              <Text style={styles.buttonText}>Confirm</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
       </View>
-    </Animated.View>
+    </Modal>
   );
-};
+}
 
-export default UserSettings;
-
+// ----- STYLES -----
 const styles = StyleSheet.create({
-  container: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 16,
-    elevation: 5,
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContainer: {
+    width: "90%",
+    borderRadius: 15,
+    padding: 20,
     shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 5,
+    elevation: 5,
   },
   header: {
     flexDirection: "row",
@@ -200,48 +217,63 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
-  headerText: {
+  title: {
     fontSize: 20,
-    fontWeight: "bold",
+    fontWeight: "700",
   },
-  content: {},
   label: {
-    fontSize: 16,
     marginTop: 12,
+    fontSize: 16,
   },
   input: {
     height: 40,
     borderWidth: 1,
     borderRadius: 5,
+    marginTop: 6,
+    marginBottom: 12,
     paddingHorizontal: 8,
-    marginTop: 8,
   },
-  themeContainer: {
+  themeOptions: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginTop: 8,
+    marginBottom: 16,
   },
   themeOption: {
     width: 80,
     height: 40,
     margin: 4,
     borderWidth: 2,
-    borderRadius: 4,
+    borderRadius: 5,
     alignItems: "center",
     justifyContent: "center",
   },
   buttonRow: {
-    marginTop: 16,
     flexDirection: "row",
     justifyContent: "space-around",
+    marginTop: 8,
   },
-  actionButton: {
+  button: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 5,
+    borderRadius: 8,
+    marginHorizontal: 5,
   },
-  actionButtonText: {
+  logoutButton: {
+    backgroundColor: "#007AFF",
+  },
+  deleteButton: {
+    backgroundColor: "red",
+  },
+  confirmButton: {
+    backgroundColor: "#4CAF50",
+    flex: 1,
+    justifyContent: "center",
+  },
+  buttonText: {
     color: "#fff",
-    fontWeight: "bold",
+    marginLeft: 6,
+    fontWeight: "600",
   },
 });
