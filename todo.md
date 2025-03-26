@@ -28,8 +28,6 @@
 
 1. Write the code for each game to collect the data thats used to make sure it records their scores
 
-
-
 ## Front End
 ### Game related
 2. Add the files for all the other games
@@ -44,18 +42,13 @@
 1. Make code for the profile page to be better
  1. Add stats
  2. Improve the profile to have more profile customisation
-    1. App theme
-    2. Stats
-    3. Make banner colour simpler to adjust
+    1. Stats
 2. Make some daily games, maybe base the id on the time of day?
 
 4. Add pictures to make it more engaging
     * This could be a short picture or a video that actually explains how the game works -D
 5. Daily streak implementation
  * If a user has played yesterday it should add 1 to their score
-~~6. For simplicity, give the social section just:~~
-~~ 1. The top players total score for the games~~
-~~ 2. The best players of that day~~
 7. Generate individual reports for each user
  * Similar to spotify wrapped
 ## Back End
@@ -63,8 +56,6 @@
 ### Data Storage related
 1. Make the data for the games a single file, that way changing it is easier to find, can be quicker and isnt called in multiple places
     * Place in constants
-
-
 
 ### Not API Related
 1. Write the code for each game to collect the data thats used to make sure it records their scores
@@ -83,3 +74,4 @@ Deb suggested chatbots + more aesthetics
  * Animations
  * Special effects
  * Videos and additional images
+* Password hasing - Prevent MITM attacks
