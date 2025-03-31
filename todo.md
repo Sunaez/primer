@@ -4,29 +4,22 @@
 2. Start section 3(/4) slowly and discuss implementation
 
 
-## Immediate tasks Before the 17th
+## Immediate tasks
+1. Write about changing the equation to fall off at 250ms instead of 175ms
+ 1. Remake its respective graph too
 
+2. Write the code for each game to collect the data thats used to make sure it records their scores
 
-6. For simplicity, give the social section just:
- 1. The top players total score for the games
- 2. The best players of that day
- * Fix the data collection to collect the game that its playing
-    * It works for the overall data collection but it does not work for the dailybests?
- * Add animation when dropping down the list of games
-
-
+3. Add a mutual friend adding feature by
+ 1. Making a friends page with a following page
+ 2. Make another page to search user's and add them to follow them
 
 4. Add pictures to make it more engaging
     * for freeplay - This could be a short picture or a video that actually explains how the game works -D
-        * ~~Also move the style from rows into larger square shapes and on hover, it expands and displays a video of how the game works~~
 
 
 * Change the freeplay section to use expo-video instead of expo-av
 
-* Use more React Native reanimated
-3. Maybe add "react native animated" for some nice animations between everything. 🪇
-
-1. Write the code for each game to collect the data thats used to make sure it records their scores
 
 ## Front End
 ### Game related
@@ -75,3 +68,4 @@ Deb suggested chatbots + more aesthetics
  * Special effects
  * Videos and additional images
 * Password hasing - Prevent MITM attacks
+* Use more React Native reanimated

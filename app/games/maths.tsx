@@ -1,20 +1,16 @@
+// MathsGame.tsx
 import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  FlatList,
-  Alert,
+  View, Text, StyleSheet, TouchableOpacity, Alert
 } from 'react-native';
 import { useThemeContext } from '@/context/ThemeContext';
 import THEMES from '@/constants/themes';
 import ReturnFreeplayButton from '@/components/ReturnFreeplayButton';
-import { uploadGameScore } from '@/components/backend/scoreService';
+import { uploadMathsGameScore } from '@/components/backend/MathsScoreService';
 
 interface Result {
   correct: boolean;
-  time: number;
+  time: number; // in seconds
 }
 
 type Stage = 'playing' | 'results';
@@ -25,7 +21,6 @@ export default function MathsGame({ difficulty = 'easy' }) {
   const { themeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
 
-  // Game State Variables
   const [stage, setStage] = useState<Stage>('playing');
   const [questionIndex, setQuestionIndex] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState('');
@@ -39,20 +34,21 @@ export default function MathsGame({ difficulty = 'easy' }) {
 
   useEffect(() => {
     if (stage === 'playing') {
-      setDatePlayed(new Date().toISOString()); // Store when the game started
+      setDatePlayed(new Date().toISOString());
       generateQuestion();
     }
   }, [stage]);
 
   function generateQuestion() {
     const operators = ['+', '-', 'x', '/'];
-    const range = difficulty === 'hard' ? 50 : difficulty === 'medium' ? 20 : 10;
+    const range =
+      difficulty === 'hard' ? 50 : difficulty === 'medium' ? 20 : 10;
 
     const num1 = Math.floor(Math.random() * range) + 1;
     const num2 = Math.floor(Math.random() * range) + 1;
     const operator = operators[Math.floor(Math.random() * operators.length)];
 
-    let question = `${num1} ${operator} ${num2}`;
+    let questionString = `${num1} ${operator} ${num2}`;
     let answer: number;
 
     switch (operator) {
@@ -67,7 +63,7 @@ export default function MathsGame({ difficulty = 'easy' }) {
         break;
       case '/':
         if (num2 === 0 || num1 % num2 !== 0) {
-          return generateQuestion();
+          return generateQuestion(); // re-generate if invalid division
         }
         answer = Math.floor(num1 / num2);
         break;
@@ -75,7 +71,7 @@ export default function MathsGame({ difficulty = 'easy' }) {
         answer = 0;
     }
 
-    setCurrentQuestion(question);
+    setCurrentQuestion(questionString);
     setCorrectAnswer(answer);
     setAnswers(generateChoices(answer));
     setStartTime(Date.now());
@@ -89,20 +85,20 @@ export default function MathsGame({ difficulty = 'easy' }) {
       const offset = Math.floor(Math.random() * 5) - 2;
       choices.add(correct + offset);
     }
-
     return Array.from(choices).sort(() => Math.random() - 0.5);
   }
 
   function handleAnswer(selected: number) {
     if (correctAnswer == null) return;
-    const timeTaken = (Date.now() - startTime) / 1000;
+
+    const timeTakenSeconds = (Date.now() - startTime) / 1000;
     const wasCorrect = selected === correctAnswer;
 
-    setResults((prev) => [...prev, { correct: wasCorrect, time: timeTaken }]);
-    if (wasCorrect) setScore((prev) => prev + 1);
+    setResults(prev => [...prev, { correct: wasCorrect, time: timeTakenSeconds }]);
+    if (wasCorrect) setScore(prev => prev + 1);
 
     if (questionIndex < TOTAL_QUESTIONS - 1) {
-      setQuestionIndex((prev) => prev + 1);
+      setQuestionIndex(prev => prev + 1);
       generateQuestion();
     } else {
       setStage('results');
@@ -119,25 +115,16 @@ export default function MathsGame({ difficulty = 'easy' }) {
 
   async function handleUploadScore() {
     try {
-      const totalTime = results.reduce((sum, r) => sum + r.time, 0);
-      const accuracy = (score / TOTAL_QUESTIONS) * 100;
-      const averageTime = totalTime / TOTAL_QUESTIONS;
+      // sum up total time in seconds
+      const totalTimeSec = results.reduce((sum, r) => sum + r.time, 0);
+      // average time in seconds
+      const averageTimeSec = totalTimeSec / TOTAL_QUESTIONS;
+      // convert to ms
+      const averageTimeMs = averageTimeSec * 1000;
 
-      await uploadGameScore({
-        gameName: "mathsGame",  // Identifies this game
-        datePlayed: datePlayed, // When the game was played
-        timeTaken: parseFloat(totalTime.toFixed(2)), // Total duration in seconds
-        timestamp: Date.now(), // Unix timestamp
+      await uploadMathsGameScore(datePlayed, score, averageTimeMs);
 
-        // Game-specific fields:
-        difficulty,
-        score,                 // Number of correct answers
-        totalQuestions: TOTAL_QUESTIONS, // Total number of questions
-        accuracy: parseFloat(accuracy.toFixed(1)), // Percentage of correct answers
-        averageTime: parseFloat(averageTime.toFixed(2)), // Average response time per question
-      });
-
-      Alert.alert('Success', 'Your score has been uploaded!');
+      Alert.alert('Success', 'Your maths game score (in ms) has been uploaded!');
       setHasUploaded(true);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to upload score.');
@@ -145,28 +132,49 @@ export default function MathsGame({ difficulty = 'easy' }) {
   }
 
   function renderResults() {
-    const totalTime = results.reduce((sum, r) => sum + r.time, 0);
+    const totalTimeSec = results.reduce((sum, r) => sum + r.time, 0);
     const accuracy = (score / TOTAL_QUESTIONS) * 100;
-    const averageTime = totalTime / TOTAL_QUESTIONS;
+    const averageTimeSec = totalTimeSec / TOTAL_QUESTIONS;
+    const playedOn = new Date(datePlayed).toLocaleString();
 
     return (
       <View style={[styles.resultsContainer, { backgroundColor: currentTheme.background }]}>
         <Text style={[styles.header, { color: currentTheme.text }]}>Game Over</Text>
-        <Text style={[styles.stats, { color: currentTheme.text }]}>Score: {score} / {TOTAL_QUESTIONS}</Text>
-        <Text style={[styles.stats, { color: currentTheme.text }]}>Accuracy: {accuracy.toFixed(1)}%</Text>
-        <Text style={[styles.stats, { color: currentTheme.text }]}>Avg. Time per Question: {averageTime.toFixed(2)}s</Text>
-        <Text style={[styles.stats, { color: currentTheme.text }]}>Played On: {new Date(datePlayed).toLocaleString()}</Text>
+        <Text style={[styles.stats, { color: currentTheme.text }]}>
+          Score: {score} / {TOTAL_QUESTIONS}
+        </Text>
+        <Text style={[styles.stats, { color: currentTheme.text }]}>
+          Accuracy: {accuracy.toFixed(1)}%
+        </Text>
+        <Text style={[styles.stats, { color: currentTheme.text }]}>
+          Avg. Time per Q (sec): {averageTimeSec.toFixed(2)}s
+        </Text>
+        <Text style={[styles.stats, { color: currentTheme.text }]}>
+          Played On: {playedOn}
+        </Text>
 
         <View style={styles.buttonRow}>
           <ReturnFreeplayButton />
-          <TouchableOpacity style={[styles.button, { backgroundColor: currentTheme.button }]} onPress={handleTryAgain}>
-            <Text style={[styles.buttonText, { color: currentTheme.buttonText }]}>Try Again</Text>
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: currentTheme.button }]}
+            onPress={handleTryAgain}
+          >
+            <Text style={[styles.buttonText, { color: currentTheme.buttonText }]}>
+              Try Again
+            </Text>
           </TouchableOpacity>
           {hasUploaded ? (
-            <Text style={[styles.uploadedLabel, { color: currentTheme.text }]}>Uploaded!</Text>
+            <Text style={[styles.uploadedLabel, { color: currentTheme.text }]}>
+              Uploaded!
+            </Text>
           ) : (
-            <TouchableOpacity style={[styles.button, { backgroundColor: currentTheme.button }]} onPress={handleUploadScore}>
-              <Text style={[styles.buttonText, { color: currentTheme.buttonText }]}>Upload Score</Text>
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: currentTheme.button }]}
+              onPress={handleUploadScore}
+            >
+              <Text style={[styles.buttonText, { color: currentTheme.buttonText }]}>
+                Upload Score
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -180,18 +188,28 @@ export default function MathsGame({ difficulty = 'easy' }) {
 
   return (
     <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
-      <Text style={[styles.question, { color: currentTheme.text }]}>{currentQuestion}</Text>
+      <Text style={[styles.question, { color: currentTheme.text }]}>
+        {currentQuestion}
+      </Text>
       <View style={styles.answerGrid}>
         {answers.map((choice, i) => (
-          <TouchableOpacity key={i} style={[styles.answerButton, { backgroundColor: currentTheme.button }]} onPress={() => handleAnswer(choice)}>
+          <TouchableOpacity
+            key={i}
+            style={[styles.answerButton, { backgroundColor: currentTheme.button }]}
+            onPress={() => handleAnswer(choice)}
+          >
             <Text style={[styles.answerText, { color: currentTheme.buttonText }]}>{choice}</Text>
           </TouchableOpacity>
         ))}
       </View>
-      <Text style={[styles.progress, { color: currentTheme.onSurface }]}>Question {questionIndex + 1} / {TOTAL_QUESTIONS}</Text>
+      <Text style={[styles.progress, { color: currentTheme.onSurface }]}>
+        Question {questionIndex + 1} / {TOTAL_QUESTIONS}
+      </Text>
     </View>
   );
 }
+
+// ======= Styles =======
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -242,15 +260,6 @@ const styles = StyleSheet.create({
   stats: {
     fontSize: 20,
     marginVertical: 6,
-    textAlign: 'center',
-    fontFamily: 'Parkinsans',
-  },
-  resultsList: {
-    marginVertical: 20,
-  },
-  resultText: {
-    fontSize: 18,
-    marginVertical: 4,
     textAlign: 'center',
     fontFamily: 'Parkinsans',
   },

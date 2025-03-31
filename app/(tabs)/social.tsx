@@ -1,368 +1,304 @@
-import React, { useEffect, useState } from 'react';
+// app/(tabs)/social.tsx
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  Image,
   StyleSheet,
-  ActivityIndicator,
-  FlatList,
+  useWindowDimensions,
+  TouchableOpacity,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
-import {
-  collection,
-  query,
-  getDocs,
-  documentId,
-  where,
-} from 'firebase/firestore';
-import { db } from '@/components/firebaseConfig';
 import { useThemeContext } from '@/context/ThemeContext';
 import THEMES from '@/constants/themes';
-import useDailyScoresAndBestScore, { ScoreData } from '@/components/backend/useDailyScoresAndBestScore';
+import { GAMES } from '@/constants/games'; // your array of games
+import Ionicons from '@expo/vector-icons/Ionicons';
 
-const games = [
-  { id: 'snap', title: 'Snap' },
-  { id: 'reaction', title: 'Reaction Game' },
-  { id: 'maths', title: 'Maths Challenge' },
-  { id: 'PairMatch', title: 'Quick Pair Match' },
-];
+import ActivityModal from '../../components/social/activity/ActivityModal';
+import ActivityColumn from '../../components/social/activity/ActivityColumn';
+import GraphsSection from '../../components/social/graphing/GraphsSection';
 
-interface ProfileDoc {
-  username?: string;
-  photoURL?: string;
-  bannerColor?: string;
-}
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  Easing,
+} from 'react-native-reanimated';
 
-interface LeaderboardItem {
-  userId: string;
-  bestScore: number;
-  accuracy: number;
-  averageTime: number;
-  gameName: string;
-  username: string;
-  photoURL: string;
-  bannerColor: string;
-  noScore?: boolean;
-}
-
-interface CombinedRow {
-  daily?: LeaderboardItem;
-  allTime?: LeaderboardItem;
-}
+import { PanGestureHandler } from 'react-native-gesture-handler';
 
 export default function Social() {
   const { themeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
 
-  const [rows, setRows] = useState<CombinedRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedGame, setSelectedGame] = useState('maths'); // default game
+  // Window-based layout
+  const { width: windowWidth } = useWindowDimensions();
+  const isMobile = windowWidth < 768;
+  const navWidth = 256;
+  const desktopAvailableWidth = windowWidth - navWidth;
 
-  // Use the new hook that accepts the selected game.
-  const { scores: dailyScores, bestScore: dailyBest } = useDailyScoresAndBestScore(selectedGame);
+  // ========== Collapsible Activity Column State ==========
+  const [activityCollapsed, setActivityCollapsed] = useState(false);
+  const handleWidth = 32; // the pressable bar
+  const leftColumnWidth = activityCollapsed ? 0 : desktopAvailableWidth / 3;
+  const rightColumnWidth = desktopAvailableWidth - leftColumnWidth - handleWidth;
+
+  // We'll rotate an Ionicon from 0 -> 180 deg based on collapsed
+  const iconRotation = useSharedValue(activityCollapsed ? 180 : 0);
 
   useEffect(() => {
-    fetchLeaderboards();
-  }, [selectedGame, dailyScores, dailyBest]);
-
-  async function fetchLeaderboards() {
-    setLoading(true);
-    try {
-      // Attach profile info to daily scores array.
-      let dailyItems = await attachProfiles(dailyScores);
-      if (dailyItems.length === 0) {
-        dailyItems = [createNoScoreItem()];
-      }
-
-      // For the all-time leaderboard (as a test), use the best score wrapped in an array.
-      let allTimeItems = dailyBest ? [await attachProfile(dailyBest)] : [createNoScoreItem()];
-
-      // Align the lists
-      const maxLen = Math.max(dailyItems.length, allTimeItems.length);
-      while (dailyItems.length < maxLen) {
-        dailyItems.push(createNoScoreItem());
-      }
-      while (allTimeItems.length < maxLen) {
-        allTimeItems.push(createNoScoreItem());
-      }
-
-      // Combine the two lists into rows.
-      const combined: CombinedRow[] = [];
-      for (let i = 0; i < maxLen; i++) {
-        combined.push({ daily: dailyItems[i], allTime: allTimeItems[i] });
-      }
-
-      setRows(combined);
-    } catch (err) {
-      console.error('Error fetching leaderboard data:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function attachProfiles(scoreDocs: ScoreData[]): Promise<LeaderboardItem[]> {
-    if (scoreDocs.length === 0) return [];
-    const realDocs = scoreDocs.filter((d) => d.userId && d.userId.trim() !== '');
-    const userIds = realDocs.map((doc) => doc.userId);
-    let profileMap: Record<string, ProfileDoc> = {};
-
-    if (userIds.length > 0) {
-      for (let i = 0; i < userIds.length; i += 10) {
-        const batchIds = userIds.slice(i, i + 10);
-        const pQ = query(collection(db, 'profile'), where(documentId(), 'in', batchIds));
-        const snap = await getDocs(pQ);
-        snap.docs.forEach((pDoc) => {
-          profileMap[pDoc.id] = pDoc.data() as ProfileDoc;
-        });
-      }
-    }
-
-    return realDocs.map((d) => {
-      const p = profileMap[d.userId] || {};
-      return {
-        userId: d.userId,
-        bestScore: d.score ?? 0,
-        accuracy: d.accuracy ?? 0,
-        averageTime: d.averageTime ?? 0,
-        gameName: d.gameName || selectedGame,
-        username: p.username || 'Unknown Player',
-        photoURL: p.photoURL || '',
-        bannerColor: p.bannerColor || '#666',
-      };
+    iconRotation.value = withTiming(activityCollapsed ? 180 : 0, {
+      duration: 300,
+      easing: Easing.out(Easing.ease),
     });
-  }
+  }, [activityCollapsed]);
 
-  async function attachProfile(scoreDoc: ScoreData): Promise<LeaderboardItem> {
-    const profiles = await attachProfiles([scoreDoc]);
-    return profiles.length > 0 ? profiles[0] : createNoScoreItem();
-  }
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${iconRotation.value}deg` }],
+  }));
 
-  function createNoScoreItem(): LeaderboardItem {
-    return {
-      userId: '',
-      bestScore: 0,
-      accuracy: 0,
-      averageTime: 0,
-      gameName: selectedGame,
-      username: 'No score yet',
-      photoURL: '',
-      bannerColor: '#666',
-      noScore: true,
-    };
-  }
+  // ========== Mobile Activity Modal ==========
+  const [activityModalVisible, setActivityModalVisible] = useState(false);
 
-  if (loading) {
-    return (
-      <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
-        <ActivityIndicator size="large" color={currentTheme.primary} />
-      </View>
-    );
-  }
-
-  return (
-    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
-      {/* Game Picker */}
-      <View style={styles.pickerContainer}>
-        <Text style={[styles.pickerLabel, { color: currentTheme.text }]}>Game:</Text>
-        <Picker
-          selectedValue={selectedGame}
-          onValueChange={(val) => setSelectedGame(val)}
-          style={[styles.pickerStyle, { color: currentTheme.text }]}
-        >
-          {games.map((g) => (
-            <Picker.Item key={g.id} label={g.title} value={g.id} />
-          ))}
-        </Picker>
-      </View>
-
-      {/* Leaderboard Headers */}
-      <View style={styles.labelRow}>
-        <Text style={[styles.headerLabel, { color: currentTheme.text }]}>
-          Today's Best
-        </Text>
-        <Text style={[styles.headerLabel, { color: currentTheme.text }]}>
-          All-Time Best
-        </Text>
-      </View>
-
-      <FlatList
-        data={rows}
-        renderItem={renderRow}
-        keyExtractor={(_, i) => String(i)}
-        ListEmptyComponent={
-          <Text style={[styles.emptyText, { color: currentTheme.text }]}>
-            No scores found
-          </Text>
-        }
+  // Mobile-only icon
+  const ActivityIcon = () => (
+    <View style={styles.activityIcon}>
+      <Ionicons
+        name="notifications-outline"
+        size={28}
+        color={currentTheme.primary}
+        onPress={() => setActivityModalVisible(true)}
       />
     </View>
   );
 
-  function renderRow({ item, index }: { item: CombinedRow; index: number }) {
-    const rankColor = index === 0 ? 'gold'
-                    : index === 1 ? 'silver'
-                    : index === 2 ? 'bronze'
-                    : '#fff';
-    const rankLabel = index === 0 ? '1.'
-                     : index === 1 ? '2.'
-                     : index === 2 ? '3.'
-                     : `${index + 1}.`;
+  // ========== Game Selection (Animated Dropdown) ==========
+  const [selectedGame, setSelectedGame] = useState<string>('snap'); // default
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownProgress = useSharedValue(0);
+  const MAX_DROPDOWN_HEIGHT = 200;
 
-    return (
-      <View style={styles.rowWrapper}>
-        {/* Daily Leaderboard */}
-        <View style={[styles.card, { backgroundColor: currentTheme.surface }]}>
-          <Text style={[styles.rankText, { color: rankColor }]}>{rankLabel}</Text>
-          {item.daily ? renderLeaderboardCell(item.daily) : renderNoScoreCell()}
-        </View>
+  const toggleDropdown = () => {
+    if (!dropdownOpen) {
+      // open
+      dropdownProgress.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.ease) });
+      setDropdownOpen(true);
+    } else {
+      // close
+      dropdownProgress.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.ease) });
+      setDropdownOpen(false);
+    }
+  };
 
-        {/* All-Time Leaderboard */}
-        <View style={[styles.card, { backgroundColor: currentTheme.surface }]}>
-          <Text style={[styles.rankText, { color: rankColor }]}>{rankLabel}</Text>
-          {item.allTime ? renderLeaderboardCell(item.allTime) : renderNoScoreCell()}
-        </View>
-      </View>
-    );
-  }
+  const dropdownStyle = useAnimatedStyle(() => {
+    const h = dropdownProgress.value * MAX_DROPDOWN_HEIGHT;
+    return {
+      height: h,
+      opacity: dropdownProgress.value,
+    };
+  });
 
-  function renderLeaderboardCell(lbi: LeaderboardItem) {
-    if (lbi.noScore) return renderNoScoreCell();
+  const onSelectGame = (id: string) => {
+    setSelectedGame(id);
+    // close the dropdown
+    dropdownProgress.value = withTiming(0);
+    setDropdownOpen(false);
+  };
 
-    return (
-      <View style={styles.cellContainer}>
-        <View style={[styles.leftHalf, { backgroundColor: lbi.bannerColor }]}>
-          {lbi.photoURL ? (
-            <Image source={{ uri: lbi.photoURL }} style={styles.avatar} resizeMode="cover" />
-          ) : (
-            <View style={[styles.avatarPlaceholder, { backgroundColor: '#444' }]} />
-          )}
-          <Text
-            style={[styles.username, { color: '#fff' }]}
-            numberOfLines={1}
-            ellipsizeMode="tail"
+  // ========== Render ==========
+
+  return (
+    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
+      {isMobile ? (
+        // =============== MOBILE LAYOUT ===============
+        <>
+          <ActivityIcon />
+
+          {/* Animated game selection dropdown */}
+          <View style={styles.dropdownContainer}>
+            <TouchableOpacity
+              style={[
+                styles.selectedGameButton,
+                { backgroundColor: currentTheme.card },
+              ]}
+              onPress={toggleDropdown}
+            >
+              <Text style={{ color: currentTheme.text }}>
+                {GAMES.find((g) => g.id === selectedGame)?.title || 'Select Game'}
+              </Text>
+              <Ionicons
+                name={dropdownOpen ? 'chevron-up-outline' : 'chevron-down-outline'}
+                size={18}
+                color={currentTheme.text}
+              />
+            </TouchableOpacity>
+
+            <Animated.View
+              style={[
+                styles.dropdownList,
+                { backgroundColor: currentTheme.surface },
+                dropdownStyle,
+              ]}
+            >
+              {GAMES.map((game) => (
+                <TouchableOpacity
+                  key={game.id}
+                  style={styles.dropdownItem}
+                  onPress={() => onSelectGame(game.id)}
+                >
+                  <Text
+                    style={{
+                      color:
+                        game.id === selectedGame
+                          ? currentTheme.primary
+                          : currentTheme.text,
+                    }}
+                  >
+                    {game.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </Animated.View>
+          </View>
+
+          <GraphsSection
+            currentTheme={currentTheme}
+            selectedGame={selectedGame}
+            graphsColumnWidth={windowWidth}
+          />
+
+          <ActivityModal
+            visible={activityModalVisible}
+            onClose={() => setActivityModalVisible(false)}
+            currentTheme={currentTheme}
+          />
+        </>
+      ) : (
+        // =============== DESKTOP LAYOUT ===============
+        <View style={styles.desktopContainer}>
+          {/* Left column: Activity */}
+          <View style={[styles.activityColumn, { width: leftColumnWidth }]}>
+            {/* Only render if not collapsed */}
+            {!activityCollapsed && (
+              <ActivityColumn currentTheme={currentTheme} width={leftColumnWidth} />
+            )}
+          </View>
+
+          {/* Pressable bar to collapse/expand the Activity */}
+          <TouchableOpacity
+            style={[
+              styles.handleArea,
+              { width: handleWidth, backgroundColor: currentTheme.card },
+            ]}
+            onPress={() => setActivityCollapsed(!activityCollapsed)}
+            activeOpacity={0.7}
           >
-            {lbi.username}
-          </Text>
-        </View>
-        <View style={styles.rightHalf}>
-          <Text style={[styles.scoreText, { color: currentTheme.text }]}>
-            Score: {lbi.bestScore}
-          </Text>
-        </View>
-      </View>
-    );
-  }
+            <Animated.View style={iconStyle}>
+              <Ionicons name="chevron-back-outline" size={22} color={currentTheme.text} />
+            </Animated.View>
+          </TouchableOpacity>
 
-  function renderNoScoreCell() {
-    return (
-      <View style={styles.cellContainer}>
-        <Text style={[styles.scoreText, { color: currentTheme.text }]}>
-          No score yet
-        </Text>
-      </View>
-    );
-  }
+          {/* Right column => dropdown + graphs */}
+          <View style={{ width: rightColumnWidth }}>
+            {/* Dropdown for game selection */}
+            <View style={styles.dropdownContainer}>
+              <TouchableOpacity
+                style={[
+                  styles.selectedGameButton,
+                  { backgroundColor: currentTheme.card },
+                ]}
+                onPress={toggleDropdown}
+              >
+                <Text style={{ color: currentTheme.text }}>
+                  {GAMES.find((g) => g.id === selectedGame)?.title || 'Select Game'}
+                </Text>
+                <Ionicons
+                  name={dropdownOpen ? 'chevron-up-outline' : 'chevron-down-outline'}
+                  size={18}
+                  color={currentTheme.text}
+                />
+              </TouchableOpacity>
+
+              <Animated.View
+                style={[
+                  styles.dropdownList,
+                  { backgroundColor: currentTheme.surface },
+                  dropdownStyle,
+                ]}
+              >
+                {GAMES.map((game) => (
+                  <TouchableOpacity
+                    key={game.id}
+                    style={styles.dropdownItem}
+                    onPress={() => onSelectGame(game.id)}
+                  >
+                    <Text
+                      style={{
+                        color:
+                          game.id === selectedGame
+                            ? currentTheme.primary
+                            : currentTheme.text,
+                      }}
+                    >
+                      {game.title}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </Animated.View>
+            </View>
+
+            <GraphsSection
+              currentTheme={currentTheme}
+              selectedGame={selectedGame}
+              graphsColumnWidth={rightColumnWidth}
+            />
+          </View>
+        </View>
+      )}
+    </View>
+  );
 }
 
+// ========== Styles ==========
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
   },
-  pickerContainer: {
+  desktopContainer: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  activityColumn: {
+    height: '100%',
+    overflow: 'hidden',
+  },
+  handleArea: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activityIcon: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    zIndex: 10,
+  },
+  dropdownContainer: {
+    margin: 16,
+    zIndex: 100,
+  },
+  selectedGameButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    flexWrap: 'wrap',
-  },
-  pickerLabel: {
-    fontSize: 16,
-    marginRight: 8,
-    marginLeft: 8,
-    fontFamily: 'Parkinsans',
-  },
-  pickerStyle: {
-    flex: 1,
-    fontFamily: 'Parkinsans',
-    height: 40,
-  },
-  labelRow: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  headerLabel: {
-    fontFamily: 'Parkinsans',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  rowWrapper: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  card: {
-    flex: 1,
-    marginHorizontal: 4,
-    padding: 8,
-    borderRadius: 8,
-  },
-  rankText: {
-    fontFamily: 'Parkinsans',
-    fontSize: 14,
-    fontStyle: 'italic',
-    marginBottom: 4,
-    alignSelf: 'center',
-  },
-  cellContainer: {
-    flexDirection: 'row',
-    width: '100%',
-    height: 80,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  leftHalf: {
-    width: '50%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderTopLeftRadius: 6,
-    borderBottomLeftRadius: 6,
+  dropdownList: {
+    borderRadius: 6,
+    overflow: 'hidden',
   },
-  rightHalf: {
-    width: '50%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginBottom: 4,
-  },
-  avatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginBottom: 4,
-  },
-  username: {
-    fontFamily: 'Parkinsans',
-    fontSize: 14,
-    fontWeight: 'bold',
-    maxWidth: '90%',
-  },
-  scoreText: {
-    fontFamily: 'Parkinsans',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  emptyText: {
-    fontFamily: 'Parkinsans',
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 32,
+  dropdownItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
   },
 });
