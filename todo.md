@@ -5,20 +5,17 @@
 
 
 ## Immediate tasks
-1. Write about changing the equation to fall off at 250ms instead of 175ms
- 1. Remake its respective graph too
 
 2. Write the code for each game to collect the data thats used to make sure it records their scores
+ * Work on the reaction game next, Make it better
+
 
 3. Add a mutual friend adding feature by
  1. Making a friends page with a following page
  2. Make another page to search user's and add them to follow them
 
 4. Add pictures to make it more engaging
-    * for freeplay - This could be a short picture or a video that actually explains how the game works -D
-
-
-* Change the freeplay section to use expo-video instead of expo-av
+    * for freeplay - This could be a short picture or a video that actually explains how the game works -D]
 
 
 ## Front End

@@ -47,7 +47,7 @@ export const GAMES: Game[] = [
     video: require('@/assets/videos/maths.mp4'), // ✅ This game has a video
   },
   {
-    id: 'pair-match',
+    id: 'pairs',
     title: 'Quick Pair Match',
     instructions: [
       'Flip two cards at a time.',

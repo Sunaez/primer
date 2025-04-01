@@ -62,7 +62,8 @@
     "react-native-web": "~0.19.13",
     "react-native-webview": "13.12.5",
     "reanimated-color-picker": "^4.0.0",
-    "tamagui": "^1.120.1"
+    "tamagui": "^1.120.1",
+    "expo-video": "~2.0.6"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

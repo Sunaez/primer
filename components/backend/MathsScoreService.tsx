@@ -7,15 +7,17 @@ import { uploadGameScore } from "./scoreService";
  *   - C: number of correct answers
  */
 function calculateScoreIndex(T: number, C: number): number {
-    if (T <= 250) {
-      // S(T, C) = C * (5 - 5 * cos((π/250) * T))
-      return C * (5 - 5 * Math.cos((Math.PI / 250) * T)) / 5;
-    } else {
-      // S(T, C) = 10 * C * exp((ln(0.75) / 825) * (T - 250)) / 5
-      const exponent = (Math.log(0.75) / 825) * (T - 250);
-      return 2 * C * Math.exp(exponent);
-    }
+  if (T > 0 && T <= 250) {
+    // f(T, C) = C * (5 - 5 * cos((π / 250) * T))
+    return C * (5 - 5 * Math.cos((Math.PI / 250) * T));
+  } else if (T > 250 && T < 10000) {
+    // f(T, C) = 10 * C * exp((ln(0.8) / 625) * (T - 250) / 2)
+    const exponent = (Math.log(0.8) / 625) * ((T - 250) / 2);
+    return 10 * C * Math.exp(exponent);
+  } else {
+    return 0;
   }
+}
 /**
  * Upload a math game score
  *  - datePlayed: ISO date string of the session

@@ -36,9 +36,12 @@
       [
         "expo-font",
         {
-          "font": ["./assets/fonts/Parkisans.ttf"]
+          "font": [
+            "./assets/fonts/Parkisans.ttf"
+          ]
         }
-      ]
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true
