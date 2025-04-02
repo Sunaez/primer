@@ -20,9 +20,9 @@ export const GAMES: Game[] = [
     id: 'snap',
     title: 'Snap',
     instructions: [
-      'Shuffle the deck thoroughly.',
-      'Split the deck between two players.',
-      'Players flip cards in turn, calling "Snap!" when matching cards appear.',
+      'Shapes are randomly and constantly changing.',
+      'Wait until the shapes match.',
+      'Click as soon as you see them match, the faster the better !!',
     ],
     video: undefined, // No video yet
   },
@@ -54,6 +54,6 @@ export const GAMES: Game[] = [
       'Remember their positions to make matches.',
       'Clear the board in the fewest moves!',
     ],
-    video: 'https://example.com/pair-match-demo.mp4', // ✅ Online video
+    video: 'undefined', // No video yet
   },
 ];

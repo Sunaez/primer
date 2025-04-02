@@ -5,8 +5,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 // Import your games
 import ArithmeticChallenge from '@/games/maths';
-import ReactionGame from '@/games/reaction';
-import SnapGame from '@/games/snap';
+import ReactionGame from '@/app/games/snap';
+import SnapGame from '@/app/games/reaction';
 
 const gameComponents: Record<string, React.ComponentType<any>> = {
   maths: ArithmeticChallenge,

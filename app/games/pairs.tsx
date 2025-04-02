@@ -13,13 +13,6 @@ import THEMES from '@/constants/themes';
 import AllShapes from '@/components/AllShapes';
 // Ensure the import path matches your project structure.
 import { uploadPairsGameScore } from '@/components/backend/PairsScoreService';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  interpolate,
-  Easing,
-} from 'react-native-reanimated';
 
 // Determine layout based on window width
 const { width } = Dimensions.get('window');
