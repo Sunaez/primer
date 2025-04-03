@@ -4,7 +4,6 @@ import {
   View,
   StyleSheet,
   Image,
-  Button,
   Alert,
   TouchableOpacity,
   Text,
@@ -13,7 +12,7 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { auth, db } from "@/components/firebaseConfig";
-import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, deleteDoc, deleteField } from "firebase/firestore";
 import { useThemeContext } from "@/context/ThemeContext";
 import THEMES from "@/constants/themes";
 import UserSettings from "@/components/profile/UserSettings";
@@ -32,10 +31,6 @@ export default function Profile() {
   const [bannerColor, setBannerColor] = useState("#333333");
   const [photoURL, setPhotoURL] = useState<string | null>(null);
   const [localThemeName, setLocalThemeName] = useState<keyof typeof THEMES>("Dark");
-
-  // Example stats
-  const [bestPerfectTime, setBestPerfectTime] = useState<number | null>(null);
-  const [gamesPlayed, setGamesPlayed] = useState<number | null>(null);
 
   // Toggles & Panel Visibility
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -74,20 +69,44 @@ export default function Profile() {
     }
   }
 
-  // ---- FETCH PROFILE DOC (excluding theme, which is fetched above) ----
+  // ---- FETCH & UPDATE PROFILE DOC TO MATCH NEW SCHEMA ----
   async function fetchUserProfileData() {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
-    const snap = await getDoc(doc(db, "profile", uid));
+    const profileDocRef = doc(db, "profile", uid);
+    const snap = await getDoc(profileDocRef);
     if (snap.exists()) {
       const data = snap.data();
+      let updateNeeded = false;
+      const updates: any = {};
+
+      // Add the friends object if it's missing.
+      if (!("friends" in data)) {
+        updates.friends = {
+          friends: [],
+          friendRequests: [],
+          blocked: [],
+        };
+        updateNeeded = true;
+      }
+      // Remove the old stats field if it exists.
+      if ("stats" in data) {
+        updates.stats = deleteField();
+        updateNeeded = true;
+      }
+      if (updateNeeded) {
+        await updateDoc(profileDocRef, updates);
+        // Optionally update local data with new schema fields.
+        if (updates.friends) {
+          data.friends = updates.friends;
+        }
+        if (updates.stats) {
+          delete data.stats;
+        }
+      }
       setUsername(data.username || "");
       setBannerColor(data.bannerColor || "#333333");
       setPhotoURL(data.photoURL || null);
-      if (data.stats) {
-        setBestPerfectTime(data.stats.bestPerfectTime);
-        setGamesPlayed(data.stats.gamesPlayed);
-      }
     } else {
       console.log("Profile doc not found (data)");
     }
@@ -194,8 +213,6 @@ export default function Profile() {
     setUsername("");
     setBannerColor("#333333");
     setPhotoURL(null);
-    setBestPerfectTime(null);
-    setGamesPlayed(null);
     setLocalThemeName("Dark");
     setThemeName("Dark");
   }
@@ -255,16 +272,31 @@ export default function Profile() {
         <Text style={[styles.text, { color: themeStyles.textColor }]}>
           {username ? `Welcome, ${username}!` : `Welcome, ${user.email}`}
         </Text>
-        <Text style={[styles.statsText, { color: themeStyles.textColor }]}>
-          Games Played: {gamesPlayed ?? 0}
-        </Text>
-        <Text style={[styles.statsText, { color: themeStyles.textColor }]}>
-          Best Perfect Time: {bestPerfectTime ?? "--"}
-        </Text>
+
+        {/* Friends Section */}
+        <View style={styles.friendsContainer}>
+          <Text style={[styles.sectionTitle, { color: themeStyles.textColor }]}>Friends</Text>
+          {/* Placeholder for Friends List */}
+          <Text style={[styles.sectionContent, { color: themeStyles.textColor }]}>
+            [Friends List Here]
+          </Text>
+
+          <Text style={[styles.sectionTitle, { color: themeStyles.textColor }]}>Friend Requests</Text>
+          {/* Placeholder for Friend Requests List */}
+          <Text style={[styles.sectionContent, { color: themeStyles.textColor }]}>
+            [Friend Requests Here]
+          </Text>
+
+          <Text style={[styles.sectionTitle, { color: themeStyles.textColor }]}>Blocked</Text>
+          {/* Placeholder for Blocked Users List */}
+          <Text style={[styles.sectionContent, { color: themeStyles.textColor }]}>
+            [Blocked Users Here]
+          </Text>
+        </View>
 
         {/* More Content */}
         <View style={styles.moreContent}>
-          <Text style={[styles.text, { color: themeStyles.textColor }]}>More Stats</Text>
+          <Text style={[styles.text, { color: themeStyles.textColor }]}>More Content</Text>
           <Text style={{ color: themeStyles.textColor }}>
             Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur congue, nunc vel vehicula suscipit, elit nulla congue mauris, eget pulvinar magna dolor nec magna.
           </Text>
@@ -370,11 +402,22 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginVertical: 8,
   },
-  statsText: {
-    fontSize: 14,
-    marginBottom: 2,
-  },
   moreContent: {
     marginTop: 20,
+  },
+  friendsContainer: {
+    marginTop: 20,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#ccc",
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginVertical: 8,
+  },
+  sectionContent: {
+    fontSize: 14,
+    marginBottom: 10,
   },
 });

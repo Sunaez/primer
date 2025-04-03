@@ -1,213 +1,263 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import LineChart, { FriendLine } from './LineChart';
+// GraphsSection.tsx
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import LineChart from './LineChart';
 import BarChart from './BarChart';
+import { 
+  collection, 
+  query, 
+  getDocs, 
+  doc, 
+  getDoc 
+} from 'firebase/firestore';
+import { db } from '@/components/firebaseConfig';
 
-interface GraphsSectionProps {
-  currentTheme: any;
-  selectedGame: string;
-  graphsColumnWidth: number;
+export interface FriendLine {
+  friendName: string;
+  scores: number[];
+  color: string;
 }
 
-const numericOptions = [1, 7, 14, 21, 30] as const;
-const unitOptions = ['Day(s)', 'Week(s)', 'Month(s)'] as const;
+interface GraphsSectionProps {
+  currentTheme: {
+    background: string;
+    text: string;
+    primary: string;
+    card: string;
+    surface: string;
+  };
+  selectedGame: string;
+  graphsColumnWidth: number;
+  currentUid: string;
+}
 
-export default function GraphsSection({
+const GraphsSection: React.FC<GraphsSectionProps> = ({
   currentTheme,
   selectedGame,
   graphsColumnWidth,
-}: GraphsSectionProps) {
-  const today = new Date();
-  const rawDates = Array.from({ length: 30 }, (_, i) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() - (29 - i));
-    return date;
-  });
+  currentUid,
+}) => {
+  const [userScores, setUserScores] = useState<number[]>([]);
+  const [friendScoreLines, setFriendScoreLines] = useState<FriendLine[]>([]);
+  const [xLabels, setXLabels] = useState<string[]>([]);
+  const [friendUIDs, setFriendUIDs] = useState<string[]>([]);
 
-  const rawLineLabels = rawDates.map(
-    (date) => `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`
-  );
+  // --- Fetch current user's scores from Firestore ---
+  useEffect(() => {
+    const fetchCurrentUserScores = async () => {
+      try {
+        // Collection path: Scores / {currentUid} / {selectedGame}
+        const scoresCol = collection(db, 'Scores', currentUid, selectedGame);
+        const q = query(scoresCol); // add filters or ordering if needed
+        const querySnapshot = await getDocs(q);
+        const scores: number[] = [];
+        querySnapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          console.log('Current user score doc:', docSnap.id, '=>', data);
+          // Try to extract a numeric score from either "scoreIndex" or "score"
+          const score =
+            typeof data.scoreIndex === 'number'
+              ? data.scoreIndex
+              : typeof data.score === 'number'
+              ? data.score
+              : 0;
+          scores.push(score);
+        });
+        // Sort scores if desired (here ascending order)
+        scores.sort((a, b) => a - b);
+        setUserScores(scores);
+      } catch (error) {
+        console.error('Error fetching current user scores:', error);
+      }
+    };
 
-  const friendLines: FriendLine[] = [
-    {
-      friendName: 'Alice',
-      color: '#FF4081',
-      scores: Array.from({ length: 30 }, () => Math.round(Math.random() * 100)),
-    },
-    {
-      friendName: 'Bob',
-      color: '#7C4DFF',
-      scores: Array.from({ length: 30 }, () => Math.round(Math.random() * 100)),
-    },
-    {
-      friendName: 'Charlie',
-      scores: Array.from({ length: 30 }, () => Math.round(Math.random() * 100)),
-    },
+    fetchCurrentUserScores();
+  }, [currentUid, selectedGame]);
+
+  // --- Fetch friend UIDs from current user's profile ---
+  useEffect(() => {
+    const fetchFriendUIDs = async () => {
+      try {
+        const profileRef = doc(db, 'profile', currentUid);
+        const profileSnap = await getDoc(profileRef);
+        if (profileSnap.exists()) {
+          const data = profileSnap.data();
+          // Assuming profile document is structured like:
+          // { friends: { friends: [uid1, uid2, ...] } }
+          const fUIDs: string[] = data?.friends?.friends || [];
+          console.log('Friend UIDs:', fUIDs);
+          setFriendUIDs(fUIDs);
+        } else {
+          console.warn('No profile document for currentUid:', currentUid);
+        }
+      } catch (error) {
+        console.error('Error fetching friend UIDs:', error);
+      }
+    };
+
+    fetchFriendUIDs();
+  }, [currentUid]);
+
+  // --- For each friend UID, fetch their profile and scores ---
+  useEffect(() => {
+    // Loop over friendUIDs array
+    friendUIDs.forEach(async (uid) => {
+      try {
+        // Fetch friend profile for display info
+        const friendProfileRef = doc(db, 'profile', uid);
+        const friendProfileSnap = await getDoc(friendProfileRef);
+        if (friendProfileSnap.exists()) {
+          const friendData = friendProfileSnap.data();
+          const friendName = friendData?.username || 'Friend';
+          const friendColor = friendData?.bannerColor || currentTheme.card;
+          // Now fetch friend's scores for the selected game
+          const scoresCol = collection(db, 'Scores', uid, selectedGame);
+          const q = query(scoresCol);
+          const querySnapshot = await getDocs(q);
+          const scores: number[] = [];
+          querySnapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            console.log(`${friendName} score doc:`, docSnap.id, '=>', data);
+            const score =
+              typeof data.scoreIndex === 'number'
+                ? data.scoreIndex
+                : typeof data.score === 'number'
+                ? data.score
+                : 0;
+            scores.push(score);
+          });
+          scores.sort((a, b) => a - b);
+          // Update friendScoreLines for this friend
+          setFriendScoreLines((prev) => {
+            // Remove any existing entry for this friend
+            const others = prev.filter((fl) => fl.friendName !== friendName);
+            return [...others, { friendName, scores, color: friendColor }];
+          });
+        } else {
+          console.warn('No profile for friend uid:', uid);
+        }
+      } catch (error) {
+        console.error('Error fetching scores for friend uid', uid, error);
+      }
+    });
+  }, [friendUIDs, selectedGame, currentTheme.card]);
+
+  // --- Compute x-axis labels based on longest scores array ---
+  useEffect(() => {
+    const allLengths = [userScores.length, ...friendScoreLines.map((fl) => fl.scores.length)];
+    const targetLength = allLengths.length > 0 ? Math.max(...allLengths) : 0;
+    if (targetLength > 0) {
+      const labels = Array.from({ length: targetLength }, (_, i) => (i + 1).toString());
+      setXLabels(labels);
+    } else {
+      setXLabels([]);
+    }
+    console.log('xLabels:', xLabels);
+  }, [userScores, friendScoreLines]);
+
+  const hasData = userScores.length > 0 || friendScoreLines.some((fl) => fl.scores.length > 0);
+
+  // --- Combine current user's and friends' scores into one array for charting ---
+  const finalFriendLines: FriendLine[] = [
+    { friendName: 'You', scores: userScores, color: currentTheme.primary },
+    ...friendScoreLines,
   ];
 
-  const [rangeNumber, setRangeNumber] = useState<number>(30);
-  const [rangeUnit, setRangeUnit] = useState<string>('Day(s)');
-  const [allTime, setAllTime] = useState<boolean>(true);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownProgress = useSharedValue(0);
-  const MAX_DROPDOWN_HEIGHT = 180;
-
-  const toggleDropdown = () => {
-    dropdownProgress.value = withTiming(dropdownOpen ? 0 : 1, {
-      duration: 300,
-      easing: Easing.out(Easing.ease),
-    });
-    setDropdownOpen(!dropdownOpen);
-  };
-
-  const dropdownStyle = useAnimatedStyle(() => ({
-    height: dropdownProgress.value * MAX_DROPDOWN_HEIGHT,
-    opacity: dropdownProgress.value,
-  }));
-
-  const [startIndex, setStartIndex] = useState(0);
-  const [endIndex, setEndIndex] = useState(29);
-
-  const onApply = () => {
-    dropdownProgress.value = withTiming(0);
-    setDropdownOpen(false);
-    setAllTime(false);
-
-    const days =
-      rangeUnit === 'Day(s)'
-        ? rangeNumber
-        : rangeUnit === 'Week(s)'
-        ? rangeNumber * 7
-        : rangeNumber * 30;
-
-    const fromIndex = Math.max(0, 30 - days);
-    setStartIndex(fromIndex);
-    setEndIndex(29);
-  };
-
-  const onAllTime = () => {
-    setAllTime(true);
-    setStartIndex(0);
-    setEndIndex(29);
-    dropdownProgress.value = withTiming(0);
-    setDropdownOpen(false);
-  };
-
-  const subLabels = rawLineLabels.slice(startIndex, endIndex + 1);
-  const subLines = friendLines.map((ln) => ({
-    ...ln,
-    scores: ln.scores.slice(startIndex, endIndex + 1),
+  // --- Compute best scores for the BarChart (e.g., best score from each series) ---
+  const bestScoresData = finalFriendLines.map((line) => ({
+    friendName: line.friendName,
+    score: line.scores.length ? Math.max(...line.scores) : 0,
+    color: line.color,
   }));
 
   return (
-    <View style={[styles.container, { width: graphsColumnWidth }]}>
+    <View style={[styles.container, { width: graphsColumnWidth, backgroundColor: currentTheme.background }]}>
+      {/* Line Chart Section */}
       <View style={styles.chartWrapper}>
-        <TouchableOpacity
-          style={[styles.changeViewButton, { backgroundColor: currentTheme.card }]}
-          onPress={toggleDropdown}
-        >
-          <Text style={[styles.fontStyle, { color: currentTheme.text }]}>
-            Change View
-          </Text>
-          <Ionicons
-            name={dropdownOpen ? 'chevron-up-outline' : 'chevron-down-outline'}
-            size={18}
-            color={currentTheme.text}
+        {hasData ? (
+          <LineChart
+            labels={xLabels}
+            lines={finalFriendLines}
+            width={graphsColumnWidth - 32}
+            height={220}
+            currentTheme={currentTheme}
+            fontFamily="Parkisans"
           />
-        </TouchableOpacity>
+        ) : (
+          <View
+            style={{
+              width: graphsColumnWidth - 32,
+              height: 220,
+              justifyContent: 'center',
+              alignItems: 'center',
+              backgroundColor: currentTheme.background,
+            }}
+          >
+            <Text style={[styles.fontStyle, { color: currentTheme.text }]}>No Data</Text>
+          </View>
+        )}
+        {/* Legend / Key */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.legendContainer}>
+          {finalFriendLines.map((line, index) => (
+            <View key={index} style={styles.legendItem}>
+              <View style={[styles.legendColorBox, { backgroundColor: line.color }]} />
+              <Text style={[styles.fontStyle, { color: currentTheme.text }]}>{line.friendName}</Text>
+            </View>
+          ))}
+        </ScrollView>
+        <Text style={[styles.chartTitle, styles.fontStyle, { color: currentTheme.text }]}>
+          All Time Scores for {selectedGame.toUpperCase()}
+        </Text>
+      </View>
 
-        <Animated.View style={[styles.dropdownContainer, { backgroundColor: currentTheme.surface }, dropdownStyle]}>
-          <View style={styles.dropdownRow}>
-            {numericOptions.map((val) => (
-              <TouchableOpacity
-                key={val}
-                style={[
-                  styles.dropdownItem,
-                  { backgroundColor: val === rangeNumber ? currentTheme.primary : 'transparent' },
-                ]}
-                onPress={() => setRangeNumber(val)}
-              >
-                <Text style={[styles.fontStyle, { color: val === rangeNumber ? currentTheme.background : currentTheme.text }]}>
-                  {val}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View style={styles.dropdownRow}>
-            {unitOptions.map((unit) => (
-              <TouchableOpacity
-                key={unit}
-                style={[
-                  styles.dropdownItem,
-                  { backgroundColor: unit === rangeUnit ? currentTheme.primary : 'transparent' },
-                ]}
-                onPress={() => setRangeUnit(unit)}
-              >
-                <Text style={[styles.fontStyle, { color: unit === rangeUnit ? currentTheme.background : currentTheme.text }]}>
-                  {unit}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View style={styles.buttonsRow}>
-            <TouchableOpacity style={[styles.applyButton, { backgroundColor: currentTheme.primary }]} onPress={onApply}>
-              <Text style={[styles.fontStyle, { color: currentTheme.background }]}>Apply</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.applyButton, { backgroundColor: currentTheme.card }]} onPress={onAllTime}>
-              <Text style={[styles.fontStyle, { color: currentTheme.text }]}>All Time</Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-
-        <LineChart
-          labels={subLabels}
-          lines={subLines}
+      {/* Bar Chart Section */}
+      <View style={styles.chartWrapper}>
+        <BarChart
+          data={bestScoresData}
+          labels={bestScoresData.map((d) => d.friendName)}
           width={graphsColumnWidth - 32}
-          height={220}
+          height={200}
           currentTheme={currentTheme}
           fontFamily="Parkisans"
         />
         <Text style={[styles.chartTitle, styles.fontStyle, { color: currentTheme.text }]}>
-          {allTime ? 'All Time' : `From ${subLabels[0]} to ${subLabels[subLabels.length - 1]}`}
-        </Text>
-      </View>
-
-      <View style={styles.chartWrapper}>
-        <BarChart
-          data={[
-            { friendName: 'Alice', score: 42 },
-            { friendName: 'Bob', score: 57 },
-            { friendName: 'Charlie', score: 75 },
-          ]}
-          labels={['Alice', 'Bob', 'Charlie']}
-          width={graphsColumnWidth - 32}
-          height={200}
-          currentTheme={currentTheme}
-        />
-        <Text style={[styles.chartTitle, styles.fontStyle, { color: currentTheme.text }]}>
-          Today's Scores
+          Today's Best Scores
         </Text>
       </View>
     </View>
   );
-}
+};
+
+export default GraphsSection;
 
 const styles = StyleSheet.create({
-  container: { padding: 16 },
-  chartWrapper: { marginBottom: 32 },
-  chartTitle: { marginTop: 8, fontSize: 16, fontWeight: 'bold' },
-  changeViewButton: { flexDirection: 'row', justifyContent: 'space-between', padding: 8, borderRadius: 6, marginBottom: 8 },
-  dropdownContainer: { overflow: 'hidden', borderRadius: 6, marginBottom: 12 },
-  dropdownRow: { flexDirection: 'row', padding: 8 },
-  dropdownItem: { padding: 8, borderRadius: 6, marginRight: 8 },
-  buttonsRow: { flexDirection: 'row', justifyContent: 'flex-end', padding: 8 },
-  applyButton: { padding: 8, borderRadius: 6, marginLeft: 8 },
-  fontStyle: { fontFamily: 'Parkisans', fontSize: 14 },
+  container: {
+    padding: 16,
+  },
+  chartWrapper: {
+    marginBottom: 32,
+  },
+  chartTitle: {
+    marginTop: 8,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  fontStyle: {
+    fontFamily: 'Parkisans',
+    fontSize: 14,
+  },
+  legendContainer: {
+    marginTop: 8,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  legendColorBox: {
+    width: 16,
+    height: 16,
+    marginRight: 4,
+    borderRadius: 4,
+  },
 });

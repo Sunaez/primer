@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Image, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Ionicons } from '@expo/vector-icons';
 import { getDoc, doc } from 'firebase/firestore';
 import { auth, db } from '@/components/firebaseConfig';
 import THEMES from '@/constants/themes';
@@ -14,7 +14,6 @@ type MobileNavBarProps = {
 export default function MobileNavBar({ theme }: MobileNavBarProps) {
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
 
-  // Fetch profile picture if user is logged in
   useEffect(() => {
     if (auth.currentUser) {
       const uid = auth.currentUser.uid;
@@ -31,10 +30,13 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
     }
   }, []);
 
+  // Optimized size for better fit
+  const ICON_SIZE = 28;
+
   return (
     <Tabs
       screenOptions={{
-        tabBarShowLabel: false, // Remove text labels
+        tabBarShowLabel: false,
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.secondary,
         tabBarActiveBackgroundColor: theme.selection,
@@ -42,7 +44,7 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
         tabBarStyle: {
           backgroundColor: theme.background,
           height: 60,
-          paddingHorizontal: 16,
+          paddingHorizontal: 5,
           borderTopWidth: 1,
           borderTopColor: theme.border || '#ccc',
         },
@@ -54,7 +56,7 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
         name="index"
         options={{
           tabBarIcon: ({ color }) => (
-            <Ionicons name="home-sharp" size={50} color={color} />
+            <Ionicons name="home-sharp" size={ICON_SIZE} color={color} />
           ),
         }}
       />
@@ -64,7 +66,7 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
         name="freeplay"
         options={{
           tabBarIcon: ({ color }) => (
-            <Ionicons name="game-controller" size={50} color={color} />
+            <Ionicons name="game-controller" size={ICON_SIZE} color={color} />
           ),
         }}
       />
@@ -74,7 +76,17 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
         name="social"
         options={{
           tabBarIcon: ({ color }) => (
-            <Ionicons name="people" size={50} color={color} />
+            <Ionicons name="chatbubbles" size={ICON_SIZE} color={color} />
+          ),
+        }}
+      />
+
+      {/* Friends */}
+      <Tabs.Screen
+        name="friends"
+        options={{
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="people-circle" size={ICON_SIZE} color={color} />
           ),
         }}
       />
@@ -87,10 +99,14 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
             profilePicture ? (
               <Image
                 source={{ uri: profilePicture }}
-                style={{ width: 50, height: 50, borderRadius: 25 }}
+                style={{
+                  width: ICON_SIZE,
+                  height: ICON_SIZE,
+                  borderRadius: ICON_SIZE / 2,
+                }}
               />
             ) : (
-              <Ionicons name="person" size={50} color={color} />
+              <Ionicons name="person" size={ICON_SIZE} color={color} />
             ),
         }}
       />

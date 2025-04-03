@@ -11,6 +11,7 @@ import { useThemeContext } from '@/context/ThemeContext';
 import THEMES from '@/constants/themes';
 import { GAMES } from '@/constants/games'; // your array of games
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { auth } from '@/components/firebaseConfig';
 
 import ActivityModal from '../../components/social/activity/ActivityModal';
 import ActivityColumn from '../../components/social/activity/ActivityColumn';
@@ -164,6 +165,7 @@ export default function Social() {
             currentTheme={currentTheme}
             selectedGame={selectedGame}
             graphsColumnWidth={windowWidth}
+            currentUid={auth.currentUser?.uid || ''}
           />
 
           <ActivityModal
@@ -250,6 +252,7 @@ export default function Social() {
               currentTheme={currentTheme}
               selectedGame={selectedGame}
               graphsColumnWidth={rightColumnWidth}
+              currentUid={auth.currentUser?.uid || ''}
             />
           </View>
         </View>

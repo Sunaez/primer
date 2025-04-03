@@ -6,6 +6,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { getDoc, doc } from 'firebase/firestore';
 import { auth, db } from '@/components/firebaseConfig';
 import THEMES from '@/constants/themes';
+import { Title } from 'react-native-paper';
 
 type DesktopNavBarProps = {
   theme: typeof THEMES[keyof typeof THEMES];
@@ -14,9 +15,11 @@ type DesktopNavBarProps = {
 const NAV_LINKS = [
   { title: 'Daily', href: '/(tabs)', iconName: 'home-sharp' },
   { title: 'Freeplay', href: '/(tabs)/freeplay', iconName: 'game-controller' },
-  { title: 'Social', href: '/(tabs)/social', iconName: 'people' },
-  { title: 'Profile', href: '/(tabs)/profile', iconName: 'person' },
+  { title: 'Social', href: '/(tabs)/social', iconName: 'chatbubbles' }, // Changed icon for uniqueness
+  { title: 'Friends', href: '/(tabs)/friends', iconName: 'people-circle' }, // Distinct icon
+  { title: 'Profile', href: '/(tabs)/profile', iconName: 'person' }, // Moved to bottom
 ] as const;
+
 
 export default function DesktopNavBar({ theme }: DesktopNavBarProps) {
   const [profilePicture, setProfilePicture] = useState<string | undefined>(undefined);
