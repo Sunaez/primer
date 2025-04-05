@@ -1,23 +1,17 @@
-// /components/social/graphing/BarChart.tsx
-import React, { useEffect } from 'react';
+// BarChart.tsx
+import React from 'react';
 import { View, Text } from 'react-native';
-import Svg, { Rect as SvgRect, Line as SvgLine, Text as SvgText } from 'react-native-svg';
-import Animated, {
-  useSharedValue,
-  useAnimatedProps,
-  withTiming,
-  Easing,
-  withDelay,
-} from 'react-native-reanimated';
+import Svg, { Rect, Line, Text as SvgText } from 'react-native-svg';
 
 interface FriendScore {
   friendName: string;
   score: number;
+  color: string; // ensure each data point includes a color if needed
 }
 
 interface ThemedBarChartProps {
   data: FriendScore[];
-  labels: string[]; // must match data.length
+  labels: string[]; // Must match data.length
   width: number;
   height: number;
   currentTheme: any;
@@ -36,7 +30,15 @@ function NoDataView({
   fontFamily: string;
 }) {
   return (
-    <View style={{ width, height, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
+    <View
+      style={{
+        width,
+        height,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: theme.background,
+      }}
+    >
       <Text style={{ fontFamily, color: theme.text }}>No Data</Text>
     </View>
   );
@@ -61,80 +63,88 @@ export default function BarChart({
     );
   }
 
-  // 1) Domain
-  const scores = data.map((d) => d.score);
-  const minScore = Math.min(...scores);
-  const maxScore = Math.max(...scores);
-  const range = maxScore - minScore || 1;
+  // Round scores to 0 decimal places.
+  const roundedData = data.map(d => ({ ...d, score: Math.round(d.score) }));
 
-  // 2) Layout
+  // Compute max score from the rounded data.
+  const scores = roundedData.map((d) => d.score);
+  const maxScore = Math.max(...scores);
+
+  // Layout configuration.
   const xPadding = 40;
   const yPadding = 20;
   const chartW = width - xPadding * 2;
   const chartH = height - yPadding * 2;
-
-  const barCount = data.length;
+  const barCount = roundedData.length;
   const barSpacing = 10;
   const barWidth = (chartW - barSpacing * (barCount + 1)) / barCount;
-
-  // 3) Animate axis + bars
-  const axisOpacity = useSharedValue(0);
-  const progress = useSharedValue(0);
-
-  useEffect(() => {
-    axisOpacity.value = withTiming(1, { duration: 700 });
-    progress.value = withDelay(300, withTiming(1, { duration: 1000, easing: Easing.out(Easing.ease) }));
-  }, [data]);
 
   return (
     <View style={{ width, height, backgroundColor: currentTheme.background }}>
       <Svg width={width} height={height}>
-        {/* X-axis */}
-        <AnimatedSvgLine
-          x1={xPadding}
-          y1={height - yPadding}
-          x2={width - xPadding}
-          y2={height - yPadding}
-          stroke={currentTheme.text}
-          strokeWidth={1.5}
-          axisOpacity={axisOpacity}
-        />
         {/* Y-axis */}
-        <AnimatedSvgLine
+        <Line
           x1={xPadding}
           y1={yPadding}
           x2={xPadding}
           y2={height - yPadding}
           stroke={currentTheme.text}
           strokeWidth={1.5}
-          axisOpacity={axisOpacity}
         />
-
-        {/* Bars */}
-        {data.map((item, i) => {
-          const val = item.score;
-          const finalHeight = ((val - minScore) / range) * chartH;
+        {/* X-axis */}
+        <Line
+          x1={xPadding}
+          y1={height - yPadding}
+          x2={width - xPadding}
+          y2={height - yPadding}
+          stroke={currentTheme.text}
+          strokeWidth={1.5}
+        />
+        {/* Y-axis labels */}
+        <SvgText
+          x={xPadding - 10}
+          y={yPadding + 5}
+          fontSize={10}
+          fontFamily={fontFamily}
+          fill={currentTheme.text}
+          textAnchor="end"
+        >
+          {maxScore}
+        </SvgText>
+        <SvgText
+          x={xPadding - 10}
+          y={height - yPadding}
+          fontSize={10}
+          fontFamily={fontFamily}
+          fill={currentTheme.text}
+          textAnchor="end"
+        >
+          0
+        </SvgText>
+        {/* Render bars */}
+        {roundedData.map((item, i) => {
+          const finalHeight = maxScore > 0 ? (item.score / maxScore) * chartH : 0;
           const x = xPadding + barSpacing + i * (barWidth + barSpacing);
+          const y = height - yPadding - finalHeight;
           return (
-            <AnimatedRect
+            <Rect
               key={`bar-${i}`}
               x={x}
-              barWidth={barWidth}
-              bottomY={height - yPadding}
-              finalHeight={finalHeight}
+              y={y}
+              width={barWidth}
+              height={finalHeight}
               fill={currentTheme.primary}
-              progress={progress}
+              rx={6}
+              ry={6}
             />
           );
         })}
-
         {/* X-axis labels */}
         {labels.map((lbl, i) => {
           const x = xPadding + barSpacing + i * (barWidth + barSpacing) + barWidth / 2;
           return (
-            <AnimatedSvgText
+            <SvgText
               key={`lbl-${i}`}
-              axisOpacity={axisOpacity}
               x={x}
               y={height - yPadding + 14}
               fontSize={10}
@@ -143,81 +153,10 @@ export default function BarChart({
               textAnchor="middle"
             >
               {lbl}
-            </AnimatedSvgText>
+            </SvgText>
           );
         })}
       </Svg>
     </View>
   );
-}
-
-// ------------------- ANIMATED PARTS ------------------- //
-import { Rect as RNRect, Line as RNLine, Text as RNText } from 'react-native-svg';
-
-// Axis
-type AnimatedLineProps = Omit<React.ComponentProps<typeof RNLine>, 'opacity'> & {
-  axisOpacity: Animated.SharedValue<number>;
-};
-const AnimatedLineComp = Animated.createAnimatedComponent(RNLine);
-
-function AnimatedSvgLine(props: AnimatedLineProps) {
-  const { axisOpacity, ...rest } = props;
-  const animatedProps = useAnimatedProps(() => ({
-    opacity: axisOpacity.value.toString(),
-  }));
-  return <AnimatedLineComp animatedProps={animatedProps} {...rest} />;
-}
-
-// Bars
-type AnimatedRectProps = {
-  x: number;
-  barWidth: number;
-  bottomY: number;
-  finalHeight: number;
-  fill: string;
-  progress: Animated.SharedValue<number>;
-};
-const AnimatedRectComp = Animated.createAnimatedComponent(RNRect);
-
-function AnimatedRect({
-  x,
-  barWidth,
-  bottomY,
-  finalHeight,
-  fill,
-  progress,
-}: AnimatedRectProps) {
-  const animatedProps = useAnimatedProps(() => {
-    const h = finalHeight * progress.value;
-    const y = bottomY - h;
-    return {
-      height: h,
-      y,
-    };
-  });
-  return (
-    <AnimatedRectComp
-      x={x}
-      width={barWidth}
-      animatedProps={animatedProps}
-      fill={fill}
-      rx={6} // round corners
-      ry={6}
-    />
-  );
-}
-
-// Text
-type AnimatedTextProps = Omit<React.ComponentProps<typeof RNText>, 'opacity'> & {
-  axisOpacity: Animated.SharedValue<number>;
-  children?: React.ReactNode;
-};
-const AnimatedTextComp = Animated.createAnimatedComponent(RNText);
-
-function AnimatedSvgText(props: AnimatedTextProps) {
-  const { axisOpacity, children, ...rest } = props;
-  const animatedProps = useAnimatedProps(() => ({
-    opacity: axisOpacity.value.toString(),
-  }));
-  return <AnimatedTextComp animatedProps={animatedProps} {...rest}>{children}</AnimatedTextComp>;
 }

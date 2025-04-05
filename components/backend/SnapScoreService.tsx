@@ -1,4 +1,3 @@
-// SnapScoreService.ts
 import { uploadGameScore } from "./scoreService";
 
 /**
@@ -8,7 +7,7 @@ import { uploadGameScore } from "./scoreService";
  * @returns The calculated score index.
  */
 function calculateScoreIndex(t: number): number {
-  const T = 273*2; // Fixed characteristic time constant
+  const T = 273 * 2; // Fixed characteristic time constant
   const n = Math.PI; // Fixed exponent for steepness of decay
 
   const score = 100 / (1 + Math.pow(t / T, n));
@@ -26,7 +25,7 @@ export async function uploadSnapGameScore(
   datePlayed: string,
   averageReactionTimeMs: number
 ): Promise<string> {
-  // Format the date/time nicely.
+  // Format date/time nicely.
   const dateObj = new Date(datePlayed);
   const formattedDate = dateObj.toLocaleDateString("en-US");
   const formattedTime = dateObj.toLocaleTimeString("en-US", {
@@ -48,6 +47,6 @@ export async function uploadSnapGameScore(
     timestamp: Date.now(),
   };
 
-  // Upload the score via the generic score service.
-  return await uploadGameScore("snapGame", data);
+  // Upload the score using the generic score service with the game id "snap".
+  return await uploadGameScore("snap", data);
 }

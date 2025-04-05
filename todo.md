@@ -6,10 +6,6 @@
 
 ## Immediate tasks
 
-3. Add a mutual friend adding feature by
- 1. Making a friends page with a following page
- 2. Make another page to search user's and add them to follow them
-
 4. Add pictures to make it more engaging
     * for freeplay - This could be a short picture or a video that actually explains how the game works -D]
 
@@ -18,6 +14,7 @@
 * Reference humanbenchmark for the pairs explanation 273ms, doubling it because you react to two things
 
 2. Write the code for each game to collect the data thats used to make sure it records their scores
+
 ## Front End
 ### Game related
 2. Add the files for all the other games

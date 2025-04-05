@@ -3,7 +3,7 @@ import { uploadGameScore } from "./scoreService";
 /**
  * Calculate the score index for the Pairs game using the formula:
  *
- *   y = (95 + b) * e^(-((ln2)/12) * (x - 1))
+ *   y = (95 + b) * e^(-((ln2)/4) * (x - 1))
  *
  * where:
  *   - b is the total number of turns,
@@ -14,18 +14,17 @@ import { uploadGameScore } from "./scoreService";
  * @returns The score index.
  */
 function calculateScoreIndex(totalTimeMs: number, totalTurns: number): number {
-    // If the total time is under 1 second, cap the score at 100.
-    if (totalTimeMs < 1000) return 100;
-  
-    // Convert total time from milliseconds to seconds.
-    const x = totalTimeMs / 1000;
-    const y = (95 + totalTurns) * Math.exp(-((Math.log(2)) / 4) * (x - 1));
-    return parseFloat(y.toFixed(3));
-  }
-  
+  // If the total time is under 1 second, cap the score at 100.
+  if (totalTimeMs < 1000) return 100;
+
+  // Convert total time from milliseconds to seconds.
+  const x = totalTimeMs / 1000;
+  const y = (95 + totalTurns) * Math.exp(-((Math.log(2)) / 4) * (x - 1));
+  return parseFloat(y.toFixed(3));
+}
 
 /**
- * Upload a pairs game score.
+ * Upload a Pairs game score.
  *
  * @param datePlayed - ISO date string representing when the game was played.
  * @param totalTurns - Total number of turns taken.
@@ -60,6 +59,6 @@ export async function uploadPairsGameScore(
     timestamp: Date.now(),
   };
 
-  // Upload the score using the generic score service.
-  return await uploadGameScore("pairsGame", data);
+  // Upload the score using the generic score service with the game id "pairs".
+  return await uploadGameScore("pairs", data);
 }

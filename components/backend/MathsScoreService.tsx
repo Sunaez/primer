@@ -1,5 +1,4 @@
-// MathsScoreService.ts
-import { uploadGameScore } from "./scoreService";
+import { uploadGameScore } from "./scoreService"
 
 /**
  * S(T, C):
@@ -18,6 +17,7 @@ function calculateScoreIndex(T: number, C: number): number {
     return 0;
   }
 }
+
 /**
  * Upload a math game score
  *  - datePlayed: ISO date string of the session
@@ -52,6 +52,6 @@ export async function uploadMathsGameScore(
     timestamp: Date.now(),
   };
 
-  // Upload via the minimal score service
-  return await uploadGameScore("mathsGame", data);
+  // Now upload using the game id from games.ts ("maths")
+  return await uploadGameScore("maths", data);
 }

@@ -1,4 +1,4 @@
-// scoreService.ts
+// /components/backend/scoreService.ts
 import { auth, db } from "@/components/firebaseConfig";
 import { collection, addDoc } from "firebase/firestore";
 
