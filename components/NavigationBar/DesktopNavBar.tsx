@@ -1,12 +1,16 @@
-// /components/NavigationBar/DesktopNavBar.tsx
 import React, { useState, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet, Image } from 'react-native';
 import { Slot, Link, LinkProps, usePathname } from 'expo-router';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  interpolateColor,
+} from 'react-native-reanimated';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getDoc, doc } from 'firebase/firestore';
 import { auth, db } from '@/components/firebaseConfig';
 import THEMES from '@/constants/themes';
-import { Title } from 'react-native-paper';
 
 type DesktopNavBarProps = {
   theme: typeof THEMES[keyof typeof THEMES];
@@ -15,16 +19,14 @@ type DesktopNavBarProps = {
 const NAV_LINKS = [
   { title: 'Daily', href: '/(tabs)', iconName: 'home-sharp' },
   { title: 'Freeplay', href: '/(tabs)/freeplay', iconName: 'game-controller' },
-  { title: 'Social', href: '/(tabs)/social', iconName: 'chatbubbles' }, // Changed icon for uniqueness
-  { title: 'Friends', href: '/(tabs)/friends', iconName: 'people-circle' }, // Distinct icon
-  { title: 'Profile', href: '/(tabs)/profile', iconName: 'person' }, // Moved to bottom
+  { title: 'Social', href: '/(tabs)/social', iconName: 'chatbubbles' },
+  { title: 'Friends', href: '/(tabs)/friends', iconName: 'people-circle' },
+  { title: 'Profile', href: '/(tabs)/profile', iconName: 'person' },
 ] as const;
-
 
 export default function DesktopNavBar({ theme }: DesktopNavBarProps) {
   const [profilePicture, setProfilePicture] = useState<string | undefined>(undefined);
 
-  // If user is logged in, fetch the user's profile picture from Firestore.
   useEffect(() => {
     if (auth.currentUser) {
       const uid = auth.currentUser.uid;
@@ -52,7 +54,6 @@ export default function DesktopNavBar({ theme }: DesktopNavBarProps) {
             href={link.href}
             iconName={link.iconName}
             theme={theme}
-            // For the Profile link, use the fetched profile picture if available
             profilePicture={link.title === 'Profile' ? profilePicture : undefined}
           />
         ))}
@@ -73,40 +74,65 @@ type DesktopNavItemProps = {
   profilePicture?: string;
 };
 
-function DesktopNavItem({ title, href, iconName, theme, profilePicture }: DesktopNavItemProps) {
+function DesktopNavItem({
+  title,
+  href,
+  iconName,
+  theme,
+  profilePicture,
+}: DesktopNavItemProps) {
   const pathname = usePathname();
-  const [hovered, setHovered] = useState(false);
-
   const isActive = pathname.startsWith(typeof href === 'string' ? href : (href as any).pathname);
-  const backgroundColor = isActive
-    ? theme.selection
-    : hovered
-    ? theme.hover
-    : 'transparent';
-  const textColor = isActive ? theme.contrast : theme.text;
+
+  // Create a shared value for hover (0 = not hovered, 1 = hovered)
+  const hoverValue = useSharedValue(0);
+
+  // Animated style for hover using scale and background color interpolation.
+  const animatedStyle = useAnimatedStyle(() => {
+    const bgColor = isActive
+      ? theme.selection
+      : interpolateColor(hoverValue.value, [0, 1], ['transparent', theme.hover]);
+    return {
+      backgroundColor: bgColor,
+      transform: [{ scale: 1 + 0.05 * hoverValue.value }],
+    };
+  });
 
   return (
     <Link href={href} asChild>
       <Pressable
-        onHoverIn={() => setHovered(true)}
-        onHoverOut={() => setHovered(false)}
+        onHoverIn={() => {
+          hoverValue.value = withTiming(1, { duration: 200 });
+        }}
+        onHoverOut={() => {
+          hoverValue.value = withTiming(0, { duration: 200 });
+        }}
         style={({ pressed }) => [
           styles.navItemDesktop,
           {
-            backgroundColor: pressed ? theme.primary : backgroundColor,
             borderColor: isActive ? theme.primary : 'transparent',
             borderWidth: 2,
           },
+          pressed && { backgroundColor: theme.primary },
         ]}
       >
-        <View style={styles.navItemContent}>
-          {title === 'Profile' && profilePicture ? (
-            <Image source={{ uri: profilePicture }} style={styles.profileIcon} />
-          ) : (
-            <Ionicons name={iconName} size={40} color={textColor} style={styles.iconStyle} />
-          )}
-          <Text style={[styles.navTextDesktop, { color: textColor }]}>{title}</Text>
-        </View>
+        <Animated.View style={animatedStyle}>
+          <View style={styles.navItemContent}>
+            {title === 'Profile' && profilePicture ? (
+              <Image source={{ uri: profilePicture }} style={styles.profileIcon} />
+            ) : (
+              <Ionicons
+                name={iconName}
+                size={40}
+                color={isActive ? theme.contrast : theme.text}
+                style={styles.iconStyle}
+              />
+            )}
+            <Text style={[styles.navTextDesktop, { color: isActive ? theme.contrast : theme.text }]}>
+              {title}
+            </Text>
+          </View>
+        </Animated.View>
       </Pressable>
     </Link>
   );

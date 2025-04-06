@@ -6,6 +6,8 @@
 
 ## Immediate tasks
 
+
+
 4. Add pictures to make it more engaging
     * for freeplay - This could be a short picture or a video that actually explains how the game works -D]
 
@@ -13,7 +15,7 @@
 
 * Reference humanbenchmark for the pairs explanation 273ms, doubling it because you react to two things
 
-2. Write the code for each game to collect the data thats used to make sure it records their scores
+* Add a manual hex entry for the banner colour customisation
 
 ## Front End
 ### Game related
@@ -31,10 +33,9 @@
     1. Stats
 2. Make some daily games, maybe base the id on the time of day?
 
-4. Add pictures to make it more engaging
-    * This could be a short picture or a video that actually explains how the game works -D
 5. Daily streak implementation
  * If a user has played yesterday it should add 1 to their score
+
 7. Generate individual reports for each user
  * Similar to spotify wrapped
 ## Back End

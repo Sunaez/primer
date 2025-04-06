@@ -1,33 +1,35 @@
-// File: components/ReturnFreeplayButton.tsx
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import Colors from '@/constants/Colors';
+import { useThemeContext } from '@/context/ThemeContext';
+import THEMES from '@/constants/themes';
 
 export default function ReturnFreeplayButton() {
   const router = useRouter();
-
-  function handlePress() {
-    // Navigate or replace to your Freeplay tab
-    router.replace('/(tabs)/freeplay');
-  }
+  const { themeName } = useThemeContext();
+  const theme = THEMES[themeName] || THEMES.Dark;
 
   return (
-    <TouchableOpacity style={styles.button} onPress={handlePress}>
-      <Text style={styles.buttonText}>Return to Freeplay</Text>
+    <TouchableOpacity
+      style={[styles.button, { backgroundColor: theme.button }]}
+      onPress={() => router.replace('/(tabs)/freeplay')}
+    >
+      <Text style={[styles.buttonText, { color: theme.buttonText, fontFamily: 'Parkisans' }]}>
+        Return to Freeplay
+      </Text>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: Colors.button,    // e.g. '#00E676'
-    padding: 14,
-    borderRadius: 8,
-    marginHorizontal: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 10,
+    marginTop: 20,
   },
   buttonText: {
-    color: Colors.buttonText,         // e.g. '#FFFFFF'
-    fontSize: 18,
+    fontSize: 20,
+    textAlign: 'center',
   },
 });

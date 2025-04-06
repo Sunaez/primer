@@ -1,6 +1,9 @@
-// file: constants/games.ts
-
 import { AVPlaybackSource } from 'expo-av';
+import ArithmeticChallenge from '@/games/maths';
+import ReactionGame from '@/app/games/snap';
+import SnapGame from '@/app/games/reaction';
+import PairsGame from '@/app/games/pairs';
+import StroopTest from '@/app/games/stroop';
 
 /**
  * Game structure:
@@ -8,13 +11,16 @@ import { AVPlaybackSource } from 'expo-av';
  * - `title`: Game name
  * - `instructions`: Step-by-step guide
  * - `video`: Optional (local file or URL)
+ * - `component`: The React component that implements the game
  */
 export interface Game {
   id: string;
   title: string;
   instructions: string[];
   video?: AVPlaybackSource | string;
+  component: React.ComponentType<any>;
 }
+
 export const GAMES: Game[] = [
   {
     id: 'snap',
@@ -24,7 +30,8 @@ export const GAMES: Game[] = [
       'Wait until the shapes match.',
       'Click as soon as you see them match, the faster the better !!',
     ],
-    video: undefined, // No video yet
+    video: require('@/assets/videos/snap.mp4'),
+    component: SnapGame,
   },
   {
     id: 'reaction',
@@ -34,17 +41,19 @@ export const GAMES: Game[] = [
       'Tap as quickly as possible when it does.',
       'Compare your reaction time with your friends!',
     ],
-    video: undefined, // No video yet
+    video: undefined,
+    component: ReactionGame,
   },
   {
     id: 'maths',
     title: 'Maths Challenge',
     instructions: [
-      'Answer as many math questions as you can within the time limit.',
-      'Watch out for negative numbers and tricky fractions.',
+      'Answer 10 questions as fast as possible.',
+      'Avoid pressing without thinking (you will lose out on score).',
       'Collect your final score at the end!',
     ],
-    video: require('@/assets/videos/maths.mp4'), // ✅ This game has a video
+    video: require('@/assets/videos/maths.mp4'),
+    component: ArithmeticChallenge,
   },
   {
     id: 'pairs',
@@ -54,6 +63,18 @@ export const GAMES: Game[] = [
       'Remember their positions to make matches.',
       'Clear the board in the fewest moves!',
     ],
-    video: 'undefined', // No video yet
+    video: require('@/assets/videos/pairs.mp4'),
+    component: PairsGame,
+  },
+  {
+    id: 'stroop',
+    title: 'Stroop',
+    instructions: [
+      'A color word is displayed in a color that may differ from the word itself.',
+      'Tap the button that corresponds to the actual color of the text.',
+      'Try to be both fast and accurate.',
+    ],
+    video: undefined,
+    component: StroopTest,
   },
 ];
