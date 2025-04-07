@@ -1,6 +1,6 @@
 // /components/profile/BannerChange.tsx
 import React, { useState, useEffect } from "react";
-import { Modal, View, StyleSheet, Text, TouchableOpacity } from "react-native";
+import { Modal, View, StyleSheet, Text, TouchableOpacity, TextInput } from "react-native";
 import ReanimatedColorPicker, { Panel1, HueSlider } from "reanimated-color-picker";
 import { auth, db } from "@/components/firebaseConfig";
 import { doc, updateDoc } from "firebase/firestore";
@@ -68,6 +68,20 @@ export default function BannerChange({
             ]}
           />
 
+          {/* Custom Hex Code Input */}
+          <TextInput
+            style={[
+              styles.hexInput,
+              { color: currentTheme.text, borderColor: currentTheme.primary },
+            ]}
+            value={selectedColor}
+            onChangeText={setSelectedColor}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="Enter Hex Code"
+            placeholderTextColor={currentTheme.divider}
+          />
+
           {/* Reanimated color picker with color wheel and hue slider */}
           <ReanimatedColorPicker
             value={selectedColor}
@@ -85,7 +99,10 @@ export default function BannerChange({
             <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={onCancel}>
               <Text style={[styles.buttonText, { color: currentTheme.text }]}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.button, styles.confirmButton, { backgroundColor: currentTheme.primary }]} onPress={handleConfirm}>
+            <TouchableOpacity
+              style={[styles.button, styles.confirmButton, { backgroundColor: currentTheme.primary }]}
+              onPress={handleConfirm}
+            >
               <Text style={styles.buttonText}>Confirm</Text>
             </TouchableOpacity>
           </View>
@@ -125,6 +142,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
   },
+  hexInput: {
+    height: 40,
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    fontSize: 16,
+    marginBottom: 16,
+    textAlign: "center",
+  },
   colorPicker: {
     marginBottom: 20,
   },
@@ -151,7 +177,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E57373",
   },
   confirmButton: {
-    // backgroundColor will be overridden by currentTheme.primary inline
+    // backgroundColor overridden inline with currentTheme.primary
   },
   buttonText: {
     color: "#fff",

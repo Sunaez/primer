@@ -1,8 +1,8 @@
+// /app/_layout.tsx
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { Stack } from 'expo-router';
 import * as Font from 'expo-font';
-import { QueuePlayProvider } from '@/games/QueuePlay';
 import { ThemeProvider, useThemeContext } from '@/context/ThemeContext';
 import THEMES from '@/constants/themes';
 
@@ -24,12 +24,12 @@ export default function RootLayout() {
   const [fontsLoaded, setFontsLoaded] = useState(false);
 
   useEffect(() => {
-    const loadFonts = async () => {
+    async function loadFonts() {
       await Font.loadAsync({
         Parkinsans: require('@/assets/fonts/Parkinsans.ttf'),
       });
 
-      // Default text styling for Parkinsans
+      // Set default text styling to use Parkinsans
       (Text as any).defaultProps = (Text as any).defaultProps || {};
       (Text as any).defaultProps.style = {
         fontFamily: 'Parkinsans',
@@ -37,13 +37,12 @@ export default function RootLayout() {
       };
 
       setFontsLoaded(true);
-    };
+    }
 
     loadFonts();
   }, []);
 
   if (!fontsLoaded) {
-    // While fonts are loading, show a loader with a fallback dark background.
     return (
       <View style={styles.loaderContainer}>
         <ActivityIndicator size="large" color="#00BFFF" />
@@ -53,9 +52,7 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <QueuePlayProvider>
-        <RootContent />
-      </QueuePlayProvider>
+      <RootContent />
     </ThemeProvider>
   );
 }
@@ -68,6 +65,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#121212', // fallback dark background
+    backgroundColor: '#121212',
   },
 });

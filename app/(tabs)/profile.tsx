@@ -1,4 +1,4 @@
-// /components/profile/Profile.tsx
+// /app/(tabs)/profile.tsx
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -19,6 +19,9 @@ import UserSettings from "@/components/profile/UserSettings";
 import SignUpIn from "@/components/profile/SignUp-In";
 import BannerChange from "@/components/profile/BannerChange";
 import PictureChange from "@/components/profile/PictureChange";
+import MostPlayedGraph from "@/components/profile/MostPlayedGraph";
+import BestScoreGraph from "@/components/profile/BestScoreGraph";
+import MostConsistentGraph from "@/components/profile/MostConsistentGraph";
 
 export default function Profile() {
   // ---- THEME HOOKS ----
@@ -39,7 +42,6 @@ export default function Profile() {
 
   // Responsive layout
   const screenWidth = Dimensions.get("window").width;
-  const isMobile = screenWidth < 768;
 
   // ---- FETCH USER PREFERRED THEME ----
   async function fetchUserPreferredTheme() {
@@ -96,7 +98,6 @@ export default function Profile() {
       }
       if (updateNeeded) {
         await updateDoc(profileDocRef, updates);
-        // Optionally update local data with new schema fields.
         if (updates.friends) {
           data.friends = updates.friends;
         }
@@ -237,13 +238,18 @@ export default function Profile() {
     primary: currentTheme.primary,
   };
 
+  // Graph dimensions: adjust these values in one place
+  const graphWidth = (screenWidth) / 2.77; // Two graphs per row; 72px reserved for margins/padding
+  const graphHeight = 80; // Height for all graphs
+  const singleGraphWidth = screenWidth /2; // For a single full-width graph row
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: themeStyles.backgroundColor }]}
       contentContainerStyle={styles.scrollContentContainer}
     >
       {/* Header Section */}
-      <View style={styles.headerContainer}>
+      <View style={[styles.headerContainer, { height: 200 }]}>
         <View style={[styles.bannerContainer, { backgroundColor: bannerColor }]} />
         <View style={styles.profileImageWrapper}>
           {photoURL ? (
@@ -255,51 +261,37 @@ export default function Profile() {
             <Ionicons name="image-outline" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
-
-        {/* Settings Button at Bottom Right of Banner */}
         <TouchableOpacity style={styles.settingsIconBanner} onPress={() => setSettingsVisible(true)}>
           <Ionicons name="settings-outline" size={28} color="#fff" />
         </TouchableOpacity>
-
-        {/* Paintbrush Icon for BannerChange */}
         <TouchableOpacity style={styles.paintbrushIcon} onPress={() => setShowBannerChange(true)}>
           <Ionicons name="color-palette-outline" size={28} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      {/* Scrollable Content */}
+      {/* Info Section */}
       <View style={styles.infoContainer}>
         <Text style={[styles.text, { color: themeStyles.textColor }]}>
           {username ? `Welcome, ${username}!` : `Welcome, ${user.email}`}
         </Text>
+      </View>
 
-        {/* Friends Section */}
-        <View style={styles.friendsContainer}>
-          <Text style={[styles.sectionTitle, { color: themeStyles.textColor }]}>Friends</Text>
-          {/* Placeholder for Friends List */}
-          <Text style={[styles.sectionContent, { color: themeStyles.textColor }]}>
-            [Friends List Here]
-          </Text>
-
-          <Text style={[styles.sectionTitle, { color: themeStyles.textColor }]}>Friend Requests</Text>
-          {/* Placeholder for Friend Requests List */}
-          <Text style={[styles.sectionContent, { color: themeStyles.textColor }]}>
-            [Friend Requests Here]
-          </Text>
-
-          <Text style={[styles.sectionTitle, { color: themeStyles.textColor }]}>Blocked</Text>
-          {/* Placeholder for Blocked Users List */}
-          <Text style={[styles.sectionContent, { color: themeStyles.textColor }]}>
-            [Blocked Users Here]
-          </Text>
+      {/* Graphs Section */}
+      <View style={styles.graphsSection}>
+        {/* Row 1: Two graphs side-by-side */}
+        <View style={styles.graphsRow}>
+          <View style={[styles.graphContainer, { backgroundColor: currentTheme.card }]}>
+            <MostPlayedGraph chartWidth={graphWidth} chartHeight={graphHeight} />
+          </View>
+          <View style={[styles.graphContainer, { backgroundColor: currentTheme.card }]}>
+            <BestScoreGraph chartWidth={graphWidth} chartHeight={graphHeight} />
+          </View>
         </View>
-
-        {/* More Content */}
-        <View style={styles.moreContent}>
-          <Text style={[styles.text, { color: themeStyles.textColor }]}>More Content</Text>
-          <Text style={{ color: themeStyles.textColor }}>
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur congue, nunc vel vehicula suscipit, elit nulla congue mauris, eget pulvinar magna dolor nec magna.
-          </Text>
+        {/* Row 2: Single graph (Most Consistent) */}
+        <View style={styles.singleGraphRow}>
+          <View style={[styles.graphContainer, { backgroundColor: currentTheme.card, width: singleGraphWidth }]}>
+            <MostConsistentGraph chartWidth={singleGraphWidth} chartHeight={graphHeight} />
+          </View>
         </View>
       </View>
 
@@ -347,7 +339,6 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     width: "100%",
-    height: 250,
     position: "relative",
   },
   bannerContainer: {
@@ -356,7 +347,7 @@ const styles = StyleSheet.create({
   },
   profileImageWrapper: {
     position: "absolute",
-    bottom: -50,
+    bottom: -40,
     left: 20,
     zIndex: 100,
   },
@@ -402,22 +393,23 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginVertical: 8,
   },
-  moreContent: {
+  graphsSection: {
     marginTop: 20,
   },
-  friendsContainer: {
-    marginTop: 20,
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#ccc",
+  graphsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    marginBottom: 16,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginVertical: 8,
+  graphContainer: {
+    flex: 1,
+    marginHorizontal: 4,
+    marginVertical: 4,
+    padding: 8,
+    borderRadius: 10,
   },
-  sectionContent: {
-    fontSize: 14,
-    marginBottom: 10,
+  singleGraphRow: {
+    alignItems: "center",
   },
 });
