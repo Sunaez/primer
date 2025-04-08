@@ -7,12 +7,14 @@ import THEMES from '@/constants/themes';
 
 export type ThemeName = keyof typeof THEMES;
 
+// Define the structure for the friends object.
 export interface Friends {
   friends: string[];
   friendRequests: string[];
   blocked: string[];
 }
 
+// Define the complete user profile.
 export interface UserProfile {
   uid: string;
   username: string;
@@ -22,9 +24,11 @@ export interface UserProfile {
   friends: Friends;
 }
 
+// The context’s shape.
 interface UserContextValue {
   user: UserProfile | null;
   setUser: (user: UserProfile | null) => void;
+  // Optional: a logout helper that also clears the user context.
   logout: () => Promise<void>;
 }
 
@@ -34,6 +38,7 @@ const UserContext = createContext<UserContextValue>({
   logout: async () => {},
 });
 
+// UserProvider listens to auth state and, when logged in, listens to the user's Firestore profile.
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
 
@@ -41,6 +46,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
         const uid = firebaseUser.uid;
+        // Subscribe to the user's profile document.
         const unsubscribeProfile = onSnapshot(doc(db, 'profile', uid), (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data();
@@ -53,6 +59,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
               friends: data.friends,
             });
           } else {
+            // Profile not set up yet.
             setUser(null);
           }
         });
@@ -60,14 +67,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           unsubscribeProfile();
         };
       } else {
+        // No authenticated user.
         setUser(null);
       }
     });
+
     return () => {
       unsubscribeAuth();
     };
   }, []);
 
+  // A helper function for logging out that also clears the context.
   const logout = async () => {
     await signOut(auth);
     setUser(null);
@@ -80,24 +90,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Hook to access the unified user context.
 export function useUserContext() {
   return useContext(UserContext);
 }
 
-// Backward compatibility: a hook exposing theme-only values.
+// Backward compatibility: provide a theme hook that only returns the theme.
 export function useThemeContext() {
-  const { user, setUser } = useUserContext();
-
-  // Define setThemeName so that components can call it.
-  const setThemeName = (theme: ThemeName) => {
-    if (user) {
-      // Optionally, you could update Firestore here as well.
-      setUser({ ...user, theme });
-    }
-  };
-
+  const { user } = useUserContext();
   return {
     themeName: user ? user.theme : 'Dark',
-    setThemeName,
   };
 }

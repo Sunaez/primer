@@ -8,7 +8,7 @@ import {
   Animated as RNAnimated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useThemeContext } from '@/context/ThemeContext';
+import { useThemeContext } from '@/context/UserContext';
 import THEMES from '@/constants/themes';
 import AllShapes from '@/components/AllShapes';
 // Ensure the import path matches your project structure.

@@ -13,6 +13,8 @@
 4. When the user logs out, their authentication is cleared, local cache is cleared and user context is emptied. 
 
 
+
+* justify defaulting dark mode
 4. Add pictures to make it more engaging
     * for freeplay - This could be a short picture or a video that actually explains how the game works -D (just got reaction left)
 4. In each game, show a graph showing previous results to see progress. Put this in the profile page or social page

@@ -1,7 +1,7 @@
 // /app/(tabs)/index.tsx
 import React from 'react';
 import { View, StyleSheet, useWindowDimensions, Platform } from 'react-native';
-import { useThemeContext } from '@/context/ThemeContext';
+import { useThemeContext } from '@/context/UserContext';
 import Desktop from '@/components/index/Desktop';
 import Mobile from '@/components/index/Mobile';
 import THEMES from '@/constants/themes';

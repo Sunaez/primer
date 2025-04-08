@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { useThemeContext } from '@/context/ThemeContext';
+import { useThemeContext } from '@/context/UserContext';
 import THEMES from '@/constants/themes';
 import ReturnFreeplayButton from '@/components/ReturnFreeplayButton';
 import { uploadStroopTestScore } from '@/components/backend/StroopScoreService';

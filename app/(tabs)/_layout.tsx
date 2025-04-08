@@ -1,7 +1,7 @@
 // /app/(tabs)/_layout.tsx
 import React from 'react';
 import { useWindowDimensions, Platform } from 'react-native';
-import { useThemeContext } from '@/context/ThemeContext';
+import { useThemeContext } from '@/context/UserContext';
 import THEMES from '@/constants/themes';
 import MobileNavBar from '@/components/NavigationBar/MobileNavBar';
 import DesktopNavBar from '@/components/NavigationBar/DesktopNavBar';

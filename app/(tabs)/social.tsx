@@ -7,7 +7,7 @@ import {
   useWindowDimensions,
   TouchableOpacity,
 } from 'react-native';
-import { useThemeContext } from '@/context/ThemeContext';
+import { useThemeContext } from '@/context/UserContext';
 import THEMES from '@/constants/themes';
 import { GAMES } from '@/constants/games'; // your array of games
 import Ionicons from '@expo/vector-icons/Ionicons';

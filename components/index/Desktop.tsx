@@ -9,7 +9,7 @@ import {
   Pressable,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useThemeContext } from '@/context/ThemeContext';
+import { useThemeContext } from '@/context/UserContext';
 import THEMES from '@/constants/themes';
 import { Game, GAMES } from '@/constants/games';
 import { VideoView, useVideoPlayer } from 'expo-video';

@@ -16,7 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Svg } from "react-native-svg";
 import { useRouter } from "expo-router";
-import { useThemeContext } from "@/context/ThemeContext";
+import { useThemeContext } from "@/context/UserContext";
 import THEMES from "@/constants/themes";
 
 // Import the score service for Snap game.

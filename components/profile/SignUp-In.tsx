@@ -14,7 +14,7 @@ import {
   createUserWithEmailAndPassword,
 } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
-import { useThemeContext } from "@/context/ThemeContext";
+import { useUserContext, useThemeContext, UserProfile, ThemeName } from "@/context/UserContext";
 import THEMES from "@/constants/themes";
 
 // Import adjectives and names from your UsernameGenerator constants
@@ -31,71 +31,88 @@ export default function SignUpIn({ onAuthSuccess }: SignUpInProps) {
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
 
-  // Get current theme from context
+  // Use our unified context for theme (backward compatibility)
   const { themeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
+  const { setUser } = useUserContext();
 
-  // Function to generate a random username using adjectives, names, and a random number
+  // Function to generate a random username.
   function generateRandomUsername() {
     const randomAdjective =
       adjectives[Math.floor(Math.random() * adjectives.length)];
     const randomName =
       names[Math.floor(Math.random() * names.length)];
-    // Generate a random number between 2 and 99 (1 and 100 not inclusive)
     const randomNumber = Math.floor(Math.random() * 98) + 2;
     return `${randomAdjective}${randomName}${randomNumber}`;
   }
 
   const handleAuthAction = async () => {
+    if (!email.trim() || !password) {
+      Alert.alert("Input Error", "Please provide a valid email and password.");
+      return;
+    }
     try {
       if (isSignUp) {
+        // Sign Up Flow
         const userCred = await createUserWithEmailAndPassword(
           auth,
-          email,
+          email.trim(),
           password
         );
         const uid = userCred.user.uid;
         const randomUsername = generateRandomUsername();
-        await setDoc(doc(db, "profile", uid), {
+        // Define profileData and cast the theme property as ThemeName.
+        const profileData: Omit<UserProfile, "uid"> = {
           username: randomUsername,
           bannerColor: "#333333",
           photoURL: null,
-          theme: "Dark",
+          theme: "Dark" as ThemeName,
           friends: {
             friends: [],
             friendRequests: [],
             blocked: [],
           },
-        });
+        };
+        await setDoc(doc(db, "profile", uid), profileData);
+        // Update UserContext immediately.
+        setUser({ uid, ...profileData });
         Alert.alert(
           "Success",
           `Account created successfully!\nYour temporary username is "${randomUsername}". Change it in your profile.`
         );
         onAuthSuccess();
       } else {
-        const userCred = await signInWithEmailAndPassword(auth, email, password);
+        // Sign In Flow
+        const userCred = await signInWithEmailAndPassword(
+          auth,
+          email.trim(),
+          password
+        );
         const uid = userCred.user.uid;
         const profileRef = doc(db, "profile", uid);
         const snap = await getDoc(profileRef);
         if (!snap.exists()) {
           const randomUsername = generateRandomUsername();
-          await setDoc(profileRef, {
+          const profileData: Omit<UserProfile, "uid"> = {
             username: randomUsername,
             bannerColor: "#333333",
             photoURL: null,
-            theme: "Dark",
+            theme: "Dark" as ThemeName,
             friends: {
               friends: [],
               friendRequests: [],
               blocked: [],
             },
-          });
+          };
+          await setDoc(profileRef, profileData);
+          setUser({ uid, ...profileData });
         }
         Alert.alert("Success", "Logged in successfully!");
         onAuthSuccess();
       }
     } catch (error: any) {
-      Alert.alert("Error", error.message || "An error occurred.");
+      console.error("Authentication error:", error);
+      Alert.alert("Error", error.message || "An error occurred. Please check your input or try again later.");
     }
   };
 

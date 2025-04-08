@@ -19,7 +19,7 @@ import Animated, {
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Asset } from 'expo-asset';
 
-import { useThemeContext } from '@/context/ThemeContext';
+import { useThemeContext } from '@/context/UserContext';
 import THEMES from '@/constants/themes';
 import { Game, GAMES } from '@/constants/games';
 

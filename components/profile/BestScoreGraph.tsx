@@ -1,7 +1,7 @@
 // /components/profile/BestScoreGraph.tsx
 import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, LayoutChangeEvent } from "react-native";
-import { useThemeContext } from "@/context/ThemeContext";
+import { useThemeContext } from "@/context/UserContext";
 import THEMES from "@/constants/themes";
 import { collection, query, getDocs, orderBy } from "firebase/firestore";
 import { db, auth } from "@/components/firebaseConfig";

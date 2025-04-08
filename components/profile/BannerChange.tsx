@@ -4,7 +4,7 @@ import { Modal, View, StyleSheet, Text, TouchableOpacity, TextInput } from "reac
 import ReanimatedColorPicker, { Panel1, HueSlider } from "reanimated-color-picker";
 import { auth, db } from "@/components/firebaseConfig";
 import { doc, updateDoc } from "firebase/firestore";
-import { useThemeContext } from "@/context/ThemeContext";
+import { useThemeContext } from "@/context/UserContext";
 import THEMES from "@/constants/themes";
 
 interface BannerChangeProps {

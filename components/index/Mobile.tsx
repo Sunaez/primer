@@ -13,7 +13,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withTiming, FadeIn, FadeOut
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { Asset } from 'expo-asset';
 import { collection, query, getDocs, orderBy } from 'firebase/firestore';
-import { useThemeContext } from '@/context/ThemeContext';
+import { useThemeContext } from '@/context/UserContext';
 import THEMES from '@/constants/themes';
 import { Game, GAMES } from '@/constants/games';
 import { db, auth } from '@/components/firebaseConfig';

@@ -3,7 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { Stack } from 'expo-router';
 import * as Font from 'expo-font';
-import { ThemeProvider, useThemeContext } from '@/context/ThemeContext';
+// Update the provider import to use UserProvider.
+import { UserProvider, useThemeContext } from '@/context/UserContext';
 import THEMES from '@/constants/themes';
 
 function RootContent() {
@@ -51,9 +52,9 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider>
+    <UserProvider>
       <RootContent />
-    </ThemeProvider>
+    </UserProvider>
   );
 }
 

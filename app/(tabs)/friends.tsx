@@ -30,7 +30,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "@/components/firebaseConfig";
 import OtherUser from "@/components/OtherUser";
-import { useThemeContext } from "@/context/ThemeContext";
+import { useThemeContext } from "@/context/UserContext";
 import THEMES from "@/constants/themes";
 
 type TabType = "friends" | "requests" | "add";

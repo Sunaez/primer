@@ -13,7 +13,7 @@ import {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { auth, db } from "@/components/firebaseConfig";
 import { doc, getDoc, updateDoc, deleteDoc, deleteField } from "firebase/firestore";
-import { useThemeContext } from "@/context/ThemeContext";
+import { useThemeContext } from "@/context/UserContext";
 import THEMES from "@/constants/themes";
 import UserSettings from "@/components/profile/UserSettings";
 import SignUpIn from "@/components/profile/SignUp-In";

@@ -8,7 +8,7 @@ import {
   Animated as RNAnimated,
 } from 'react-native';
 import { uploadMathsGameScore } from '@/components/backend/MathsScoreService';
-import { useThemeContext } from '@/context/ThemeContext';
+import { useThemeContext } from '@/context/UserContext';
 import THEMES from '@/constants/themes';
 import ReturnFreeplayButton from '@/components/ReturnFreeplayButton';
 
