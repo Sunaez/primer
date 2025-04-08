@@ -1,3 +1,4 @@
+// /app/(tabs)/_layout.tsx
 import React from 'react';
 import { useWindowDimensions, Platform } from 'react-native';
 import { useThemeContext } from '@/context/ThemeContext';
