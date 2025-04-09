@@ -16,7 +16,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { Svg } from "react-native-svg";
 import { useRouter } from "expo-router";
-import { useThemeContext } from "@/context/UserContext";
+import { useThemeContext, useUserContext } from "@/context/UserContext"; // <-- Added useUserContext
+import { notLoggedInComments } from "@/constants/NotLoggedInComments"; // <-- Import notLoggedInComments
 import THEMES from "@/constants/themes";
 
 // Import the score service for Snap game.
@@ -132,6 +133,7 @@ const SnapGame: React.FC = () => {
   const { themeName } = useThemeContext();
   const theme = THEMES[themeName] || THEMES.Dark;
   const router = useRouter();
+  const { user } = useUserContext(); // <-- Get current user
 
   // Phase state.
   const [phase, setPhase] = useState<Phase>("initial");
@@ -270,20 +272,26 @@ const SnapGame: React.FC = () => {
       if (reactionTimes.length > 0) {
         const avgReactionTimeMs =
           reactionTimes.reduce((sum, t) => sum + t, 0) / reactionTimes.length;
-        uploadSnapGameScore(datePlayed, avgReactionTimeMs)
-          .then((docId: string) => {
-            console.log("Score uploaded, docId:", docId);
-            setUploadStatus("Score Uploaded!");
-          })
-          .catch((err: any) => {
-            console.error("Score upload failed:", err);
-            setUploadStatus("Score Upload Failed.");
-          });
+        if (user) {
+          uploadSnapGameScore(datePlayed, avgReactionTimeMs)
+            .then((docId: string) => {
+              console.log("Score uploaded, docId:", docId);
+              setUploadStatus("Score Uploaded!");
+            })
+            .catch((err: any) => {
+              console.error("Score upload failed:", err);
+              setUploadStatus("Score Upload Failed.");
+            });
+        } else {
+          const comment =
+            notLoggedInComments[Math.floor(Math.random() * notLoggedInComments.length)];
+          setUploadStatus(comment);
+        }
       } else {
         setUploadStatus("No reaction times recorded.");
       }
     }
-  }, [phase, datePlayed, reactionTimes]);
+  }, [phase, datePlayed, reactionTimes, user]);
 
   // ----- GameEnd Phase: Display final results with animated scores -----
   const renderGameEnd = () => {

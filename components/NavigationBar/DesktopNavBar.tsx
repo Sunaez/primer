@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// /components/NavigationBar/DesktopNavBar.tsx
+import React from 'react';
 import { View, Text, Pressable, StyleSheet, Image } from 'react-native';
 import { Slot, Link, LinkProps, usePathname } from 'expo-router';
 import Animated, {
@@ -8,8 +9,7 @@ import Animated, {
   interpolateColor,
 } from 'react-native-reanimated';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { getDoc, doc } from 'firebase/firestore';
-import { auth, db } from '@/components/firebaseConfig';
+import { useUserContext } from '@/context/UserContext';
 import THEMES from '@/constants/themes';
 
 type DesktopNavBarProps = {
@@ -25,21 +25,10 @@ const NAV_LINKS = [
 ] as const;
 
 export default function DesktopNavBar({ theme }: DesktopNavBarProps) {
-  const [profilePicture, setProfilePicture] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    if (auth.currentUser) {
-      const uid = auth.currentUser.uid;
-      getDoc(doc(db, 'profile', uid))
-        .then((snap) => {
-          if (snap.exists()) {
-            const data = snap.data();
-            setProfilePicture(data.photoURL || undefined);
-          }
-        })
-        .catch((error) => console.error('Error fetching profile picture:', error));
-    }
-  }, []);
+  // Get logged in user's info from context.
+  const { user } = useUserContext();
+  // Extract profilePicture if available.
+  const profilePicture = user?.photoURL;
 
   return (
     <View style={[styles.desktopContainer, { backgroundColor: theme.background }]}>
@@ -54,6 +43,7 @@ export default function DesktopNavBar({ theme }: DesktopNavBarProps) {
             href={link.href}
             iconName={link.iconName}
             theme={theme}
+            // If this is the Profile link, pass in the profile picture.
             profilePicture={link.title === 'Profile' ? profilePicture : undefined}
           />
         ))}
@@ -71,7 +61,7 @@ type DesktopNavItemProps = {
   href: LinkProps['href'];
   iconName: keyof typeof Ionicons.glyphMap;
   theme: typeof THEMES[keyof typeof THEMES];
-  profilePicture?: string;
+  profilePicture?: string | null;
 };
 
 function DesktopNavItem({
@@ -84,8 +74,17 @@ function DesktopNavItem({
   const pathname = usePathname();
   const isActive = pathname.startsWith(typeof href === 'string' ? href : (href as any).pathname);
 
-  // Create a shared value for hover (0 = not hovered, 1 = hovered)
+  // Shared value for hover.
   const hoverValue = useSharedValue(0);
+
+  // Determine icon color. If active, we use theme.contrast; otherwise, for specific nav titles we use new icon properties.
+  let iconColor = isActive ? theme.contrast : theme.text;
+  if (!isActive) {
+    if (title === "Daily") iconColor = theme.daily;
+    else if (title === "Freeplay") iconColor = theme.freeplay;
+    else if (title === "Social") iconColor = theme.social;
+    else if (title === "Friends") iconColor = theme.friends;
+  }
 
   // Animated style for hover using scale and background color interpolation.
   const animatedStyle = useAnimatedStyle(() => {
@@ -124,7 +123,7 @@ function DesktopNavItem({
               <Ionicons
                 name={iconName}
                 size={40}
-                color={isActive ? theme.contrast : theme.text}
+                color={iconColor}
                 style={styles.iconStyle}
               />
             )}

@@ -6,17 +6,15 @@ import {
   StyleSheet,
   useWindowDimensions,
   TouchableOpacity,
+  Image,
 } from 'react-native';
-import { useThemeContext } from '@/context/UserContext';
+import { useThemeContext, useUserContext } from '@/context/UserContext';
 import THEMES from '@/constants/themes';
 import { GAMES } from '@/constants/games'; // your array of games
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { auth } from '@/components/firebaseConfig';
-
 import ActivityModal from '../../components/social/activity/ActivityModal';
 import ActivityColumn from '../../components/social/activity/ActivityColumn';
 import GraphsSection from '../../components/social/graphing/GraphsSection';
-
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -24,12 +22,29 @@ import Animated, {
   withSpring,
   Easing,
 } from 'react-native-reanimated';
-
+import { auth } from '@/components/firebaseConfig';
 import { PanGestureHandler } from 'react-native-gesture-handler';
 
 export default function Social() {
   const { themeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
+  const { user } = useUserContext();
+
+  // Fallback UI if no user is logged in.
+  if (!user) {
+    return (
+      <View style={[styles.fallbackContainer, { backgroundColor: currentTheme.background }]}>
+        <Image
+          source={require("@/assets/images/shrug_emoji.png")}
+          style={styles.fallbackImage}
+          resizeMode="contain"
+        />
+        <Text style={[styles.fallbackText, { color: currentTheme.text }]}>
+          You gotta be logged in for this one bro
+        </Text>
+      </View>
+    );
+  }
 
   // Window-based layout
   const { width: windowWidth } = useWindowDimensions();
@@ -37,30 +52,26 @@ export default function Social() {
   const navWidth = 256;
   const desktopAvailableWidth = windowWidth - navWidth;
 
-  // ========== Collapsible Activity Column State ==========
+  // Collapsible Activity Column State for Desktop
   const [activityCollapsed, setActivityCollapsed] = useState(false);
-  const handleWidth = 32; // the pressable bar
+  const handleWidth = 32;
   const leftColumnWidth = activityCollapsed ? 0 : desktopAvailableWidth / 3;
   const rightColumnWidth = desktopAvailableWidth - leftColumnWidth - handleWidth;
 
-  // We'll rotate an Ionicon from 0 -> 180 deg based on collapsed
+  // Rotate an Ionicon based on whether the activity column is collapsed
   const iconRotation = useSharedValue(activityCollapsed ? 180 : 0);
-
   useEffect(() => {
     iconRotation.value = withTiming(activityCollapsed ? 180 : 0, {
       duration: 300,
       easing: Easing.out(Easing.ease),
     });
   }, [activityCollapsed]);
-
   const iconStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${iconRotation.value}deg` }],
   }));
 
-  // ========== Mobile Activity Modal ==========
+  // Mobile Activity Modal
   const [activityModalVisible, setActivityModalVisible] = useState(false);
-
-  // Mobile-only icon
   const ActivityIcon = () => (
     <View style={styles.activityIcon}>
       <Ionicons
@@ -72,55 +83,38 @@ export default function Social() {
     </View>
   );
 
-  // ========== Game Selection (Animated Dropdown) ==========
-  const [selectedGame, setSelectedGame] = useState<string>('snap'); // default
+  // Game Selection Dropdown (Animated)
+  const [selectedGame, setSelectedGame] = useState<string>('snap');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownProgress = useSharedValue(0);
   const MAX_DROPDOWN_HEIGHT = 200;
-
   const toggleDropdown = () => {
     if (!dropdownOpen) {
-      // open
       dropdownProgress.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.ease) });
       setDropdownOpen(true);
     } else {
-      // close
       dropdownProgress.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.ease) });
       setDropdownOpen(false);
     }
   };
-
   const dropdownStyle = useAnimatedStyle(() => {
     const h = dropdownProgress.value * MAX_DROPDOWN_HEIGHT;
-    return {
-      height: h,
-      opacity: dropdownProgress.value,
-    };
+    return { height: h, opacity: dropdownProgress.value };
   });
-
   const onSelectGame = (id: string) => {
     setSelectedGame(id);
-    // close the dropdown
     dropdownProgress.value = withTiming(0);
     setDropdownOpen(false);
   };
 
-  // ========== Render ==========
-
   return (
     <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
       {isMobile ? (
-        // =============== MOBILE LAYOUT ===============
         <>
           <ActivityIcon />
-
-          {/* Animated game selection dropdown */}
           <View style={styles.dropdownContainer}>
             <TouchableOpacity
-              style={[
-                styles.selectedGameButton,
-                { backgroundColor: currentTheme.card },
-              ]}
+              style={[styles.selectedGameButton, { backgroundColor: currentTheme.card }]}
               onPress={toggleDropdown}
             >
               <Text style={{ color: currentTheme.text }}>
@@ -132,42 +126,22 @@ export default function Social() {
                 color={currentTheme.text}
               />
             </TouchableOpacity>
-
-            <Animated.View
-              style={[
-                styles.dropdownList,
-                { backgroundColor: currentTheme.surface },
-                dropdownStyle,
-              ]}
-            >
+            <Animated.View style={[styles.dropdownList, { backgroundColor: currentTheme.surface }, dropdownStyle]}>
               {GAMES.map((game) => (
-                <TouchableOpacity
-                  key={game.id}
-                  style={styles.dropdownItem}
-                  onPress={() => onSelectGame(game.id)}
-                >
-                  <Text
-                    style={{
-                      color:
-                        game.id === selectedGame
-                          ? currentTheme.primary
-                          : currentTheme.text,
-                    }}
-                  >
+                <TouchableOpacity key={game.id} style={styles.dropdownItem} onPress={() => onSelectGame(game.id)}>
+                  <Text style={{ color: game.id === selectedGame ? currentTheme.primary : currentTheme.text }}>
                     {game.title}
                   </Text>
                 </TouchableOpacity>
               ))}
             </Animated.View>
           </View>
-
           <GraphsSection
             currentTheme={currentTheme}
             selectedGame={selectedGame}
             graphsColumnWidth={windowWidth}
             currentUid={auth.currentUser?.uid || ''}
           />
-
           <ActivityModal
             visible={activityModalVisible}
             onClose={() => setActivityModalVisible(false)}
@@ -175,22 +149,14 @@ export default function Social() {
           />
         </>
       ) : (
-        // =============== DESKTOP LAYOUT ===============
         <View style={styles.desktopContainer}>
-          {/* Left column: Activity */}
           <View style={[styles.activityColumn, { width: leftColumnWidth }]}>
-            {/* Only render if not collapsed */}
             {!activityCollapsed && (
               <ActivityColumn currentTheme={currentTheme} width={leftColumnWidth} />
             )}
           </View>
-
-          {/* Pressable bar to collapse/expand the Activity */}
           <TouchableOpacity
-            style={[
-              styles.handleArea,
-              { width: handleWidth, backgroundColor: currentTheme.card },
-            ]}
+            style={[styles.handleArea, { width: handleWidth, backgroundColor: currentTheme.card }]}
             onPress={() => setActivityCollapsed(!activityCollapsed)}
             activeOpacity={0.7}
           >
@@ -198,16 +164,10 @@ export default function Social() {
               <Ionicons name="chevron-back-outline" size={22} color={currentTheme.text} />
             </Animated.View>
           </TouchableOpacity>
-
-          {/* Right column => dropdown + graphs */}
           <View style={{ width: rightColumnWidth }}>
-            {/* Dropdown for game selection */}
             <View style={styles.dropdownContainer}>
               <TouchableOpacity
-                style={[
-                  styles.selectedGameButton,
-                  { backgroundColor: currentTheme.card },
-                ]}
+                style={[styles.selectedGameButton, { backgroundColor: currentTheme.card }]}
                 onPress={toggleDropdown}
               >
                 <Text style={{ color: currentTheme.text }}>
@@ -219,35 +179,16 @@ export default function Social() {
                   color={currentTheme.text}
                 />
               </TouchableOpacity>
-
-              <Animated.View
-                style={[
-                  styles.dropdownList,
-                  { backgroundColor: currentTheme.surface },
-                  dropdownStyle,
-                ]}
-              >
+              <Animated.View style={[styles.dropdownList, { backgroundColor: currentTheme.surface }, dropdownStyle]}>
                 {GAMES.map((game) => (
-                  <TouchableOpacity
-                    key={game.id}
-                    style={styles.dropdownItem}
-                    onPress={() => onSelectGame(game.id)}
-                  >
-                    <Text
-                      style={{
-                        color:
-                          game.id === selectedGame
-                            ? currentTheme.primary
-                            : currentTheme.text,
-                      }}
-                    >
+                  <TouchableOpacity key={game.id} style={styles.dropdownItem} onPress={() => onSelectGame(game.id)}>
+                    <Text style={{ color: game.id === selectedGame ? currentTheme.primary : currentTheme.text }}>
                       {game.title}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </Animated.View>
             </View>
-
             <GraphsSection
               currentTheme={currentTheme}
               selectedGame={selectedGame}
@@ -261,47 +202,39 @@ export default function Social() {
   );
 }
 
-// ========== Styles ==========
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1 },
+  fallbackContainer: {
     flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  fallbackImage: {
+    width: 120,
+    height: 120,
+    marginBottom: 16,
+  },
+  fallbackText: {
+    fontSize: 18,
+    textAlign: "center",
   },
   desktopContainer: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: "row",
   },
-  activityColumn: {
-    height: '100%',
-    overflow: 'hidden',
-  },
-  handleArea: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  activityIcon: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    zIndex: 10,
-  },
-  dropdownContainer: {
-    margin: 16,
-    zIndex: 100,
-  },
+  activityColumn: { height: "100%", overflow: "hidden" },
+  handleArea: { justifyContent: "center", alignItems: "center" },
+  activityIcon: { position: "absolute", top: 16, right: 16, zIndex: 10 },
+  dropdownContainer: { margin: 16, zIndex: 100 },
   selectedGameButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,
   },
-  dropdownList: {
-    borderRadius: 6,
-    overflow: 'hidden',
-  },
-  dropdownItem: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
+  dropdownList: { borderRadius: 6, overflow: "hidden" },
+  dropdownItem: { paddingVertical: 8, paddingHorizontal: 12 },
 });

@@ -1,4 +1,3 @@
-// app/(tabs)/friends.tsx
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -6,8 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  TextInput,
-  FlatList,
   Alert,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -15,7 +12,6 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  FadeIn,
 } from "react-native-reanimated";
 import {
   doc,
@@ -26,29 +22,52 @@ import {
   updateDoc,
   arrayUnion,
   arrayRemove,
-  getDocs,
 } from "firebase/firestore";
 import { auth, db } from "@/components/firebaseConfig";
-import OtherUser from "@/components/OtherUser";
-import { useThemeContext } from "@/context/UserContext";
+import { useUserContext } from "@/context/UserContext";
 import THEMES from "@/constants/themes";
+import FriendsList from "@/components/friends/FriendsList";
+import FriendRequests from "@/components/friends/FriendRequests";
+import AddFriends from "@/components/friends/AddFriends";
 
 type TabType = "friends" | "requests" | "add";
 
 export default function FriendsTab() {
+  const { user } = useUserContext();
+  const currentTheme = THEMES[user ? user.theme : "Dark"];
+
+  // Fallback if no user is logged in.
+  if (!user) {
+    return (
+      <View
+        style={[styles.fallbackContainer, { backgroundColor: currentTheme.background }]}
+      >
+        <Image
+          source={require("@/assets/images/tear_emoji.png")}
+          style={styles.fallbackImage}
+          resizeMode="contain"
+        />
+        <Text style={[styles.fallbackText, { color: currentTheme.text }]}>
+          Me trying to add friends but I don't have an account
+        </Text>
+      </View>
+    );
+  }
+
+  // Main states and pagination.
   const [currentTab, setCurrentTab] = useState<TabType>("friends");
   const [friends, setFriends] = useState<any[]>([]);
-  const [friendRequests, setFriendRequests] = useState<any[]>([]); // Incoming requests
-  const [outgoingRequests, setOutgoingRequests] = useState<any[]>([]); // Outgoing requests
+  const [friendRequests, setFriendRequests] = useState<any[]>([]);
+  const [outgoingRequests, setOutgoingRequests] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [sentRequests, setSentRequests] = useState<string[]>([]);
   const currentUser = auth.currentUser;
+  
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const pageSize = 5;
 
-  const { themeName } = useThemeContext();
-  const currentTheme = THEMES[themeName] || THEMES.Dark;
-
-  // Animate tab content on change
+  // Animate tab content on change.
   const tabAnim = useSharedValue(0);
   useEffect(() => {
     tabAnim.value = 0;
@@ -59,7 +78,7 @@ export default function FriendsTab() {
     transform: [{ translateY: (1 - tabAnim.value) * 20 }],
   }));
 
-  // Real-time subscription to the current user's profile document
+  // Real-time subscription to the current user's profile.
   useEffect(() => {
     if (!currentUser) return;
     const profileRef = doc(db, "profile", currentUser.uid);
@@ -69,8 +88,6 @@ export default function FriendsTab() {
         const friendIds: string[] = data.friends?.friends || [];
         const incomingIds: string[] = data.friends?.friendRequests || [];
 
-        // Instead of individual getDocs, we use simple mapping here.
-        // (For a production app you might cache these lookups.)
         Promise.all(friendIds.map((uid) => fetchUserProfile(uid))).then(
           (results) => {
             setFriends(results.filter((u) => u !== null));
@@ -86,7 +103,7 @@ export default function FriendsTab() {
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Real-time subscription to all users (for Add Friends tab)
+  // Real-time subscription to all users (for "Add Friends").
   useEffect(() => {
     if (!currentUser) return;
     const usersRef = collection(db, "profile");
@@ -105,7 +122,7 @@ export default function FriendsTab() {
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Real-time subscription for outgoing friend requests:
+  // Real-time subscription for outgoing friend requests.
   useEffect(() => {
     if (!currentUser) return;
     const q = query(
@@ -124,7 +141,7 @@ export default function FriendsTab() {
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Helper function: one-off fetch of a user's profile (used in onSnapshot callbacks)
+  // Helper: one-off fetch of a user's profile.
   const fetchUserProfile = async (uid: string) => {
     return new Promise<any>((resolve) => {
       const unsub = onSnapshot(doc(db, "profile", uid), (docSnap) => {
@@ -138,8 +155,7 @@ export default function FriendsTab() {
     });
   };
 
-  // Filter users for the Add Friends tab:
-  // Exclude those already friends or with incoming requests.
+  // Filter for the "Add Friends" tab.
   const filteredUsers = allUsers.filter(
     (user) =>
       (user?.username || "")
@@ -148,10 +164,13 @@ export default function FriendsTab() {
       !friends.some((friend) => friend.uid === user.uid) &&
       !friendRequests.some((req) => req.uid === user.uid)
   );
+  const totalPages = Math.ceil(filteredUsers.length / pageSize);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
-  // Firestore update functions
-
-  // Remove friend mutually
+  // Firestore update functions.
   const handleRemoveFriend = async (friendUid: string) => {
     if (!currentUser) return;
     try {
@@ -166,7 +185,6 @@ export default function FriendsTab() {
     }
   };
 
-  // Block friend mutually
   const handleBlockFriend = async (friendUid: string) => {
     if (!currentUser) return;
     try {
@@ -187,7 +205,6 @@ export default function FriendsTab() {
     }
   };
 
-  // Accept incoming friend request mutually
   const handleAcceptFriendRequest = async (requestUid: string) => {
     if (!currentUser) return;
     try {
@@ -211,14 +228,11 @@ export default function FriendsTab() {
     }
   };
 
-  // Reject incoming friend request
   const handleRejectFriendRequest = async (requestUid: string) => {
     if (!currentUser) return;
     try {
       const currentRef = doc(db, "profile", currentUser.uid);
-      await updateDoc(currentRef, {
-        "friends.friendRequests": arrayRemove(requestUid),
-      });
+      await updateDoc(currentRef, { "friends.friendRequests": arrayRemove(requestUid) });
       setFriendRequests(friendRequests.filter((u) => u.uid !== requestUid));
       Alert.alert("Friend Request Rejected", "The friend request has been rejected.");
     } catch (error: any) {
@@ -226,14 +240,11 @@ export default function FriendsTab() {
     }
   };
 
-  // Cancel outgoing friend request
   const handleCancelFriendRequest = async (targetUid: string) => {
     if (!currentUser) return;
     try {
       const targetRef = doc(db, "profile", targetUid);
-      await updateDoc(targetRef, {
-        "friends.friendRequests": arrayRemove(currentUser.uid),
-      });
+      await updateDoc(targetRef, { "friends.friendRequests": arrayRemove(currentUser.uid) });
       setOutgoingRequests(outgoingRequests.filter((req) => req.uid !== targetUid));
       Alert.alert("Request Canceled", "Your friend request has been canceled.");
     } catch (error: any) {
@@ -241,14 +252,11 @@ export default function FriendsTab() {
     }
   };
 
-  // Send a friend request (for Add Friends) and mark it as sent locally
   const handleSendFriendRequest = async (otherUid: string) => {
     if (!currentUser) return;
     try {
       const otherRef = doc(db, "profile", otherUid);
-      await updateDoc(otherRef, {
-        "friends.friendRequests": arrayUnion(currentUser.uid),
-      });
+      await updateDoc(otherRef, { "friends.friendRequests": arrayUnion(currentUser.uid) });
       setSentRequests([...sentRequests, otherUid]);
       Alert.alert("Request Sent", "Your friend request has been sent.");
     } catch (error: any) {
@@ -266,19 +274,13 @@ export default function FriendsTab() {
       {/* Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
-          style={[
-            styles.tab,
-            currentTab === "friends" && { borderBottomColor: currentTheme.primary },
-          ]}
+          style={[styles.tab, currentTab === "friends" && { borderBottomColor: currentTheme.primary }]}
           onPress={() => setCurrentTab("friends")}
         >
           <Text style={[styles.tabText, { color: currentTheme.text }]}>Friends</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[
-            styles.tab,
-            currentTab === "requests" && { borderBottomColor: currentTheme.primary },
-          ]}
+          style={[styles.tab, currentTab === "requests" && { borderBottomColor: currentTheme.primary }]}
           onPress={() => setCurrentTab("requests")}
         >
           <Text style={[styles.tabText, { color: currentTheme.text }]}>Friend Requests</Text>
@@ -289,10 +291,7 @@ export default function FriendsTab() {
           )}
         </TouchableOpacity>
         <TouchableOpacity
-          style={[
-            styles.tab,
-            currentTab === "add" && { borderBottomColor: currentTheme.primary },
-          ]}
+          style={[styles.tab, currentTab === "add" && { borderBottomColor: currentTheme.primary }]}
           onPress={() => setCurrentTab("add")}
         >
           <Text style={[styles.tabText, { color: currentTheme.text }]}>Add Friends</Text>
@@ -302,118 +301,39 @@ export default function FriendsTab() {
       {/* Animated Tab Content */}
       <Animated.View style={[styles.listContainer, animatedTabStyle]}>
         {currentTab === "friends" && (
-          <>
-            {friends.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Image
-                  source={require("@/assets/images/shrug_emoji.png")}
-                  style={styles.emptyImage}
-                />
-                <Text style={[styles.emptyText, { color: currentTheme.text }]}>
-                  No friends in 2025 is crazy btw
-                </Text>
-              </View>
-            ) : (
-              friends.map((user, index) => (
-                <Animated.View key={user.uid} entering={FadeIn.delay(index * 50)}>
-                  <OtherUser
-                    username={user.username}
-                    bannerColor={user.bannerColor}
-                    theme={user.theme}
-                    photoURL={user.photoURL}
-                    onRemove={() => handleRemoveFriend(user.uid)}
-                    onBlock={() => handleBlockFriend(user.uid)}
-                  />
-                </Animated.View>
-              ))
-            )}
-          </>
+          <FriendsList
+            friends={friends}
+            currentTheme={currentTheme}
+            onRemoveFriend={handleRemoveFriend}
+            onBlockFriend={handleBlockFriend}
+          />
         )}
-
         {currentTab === "requests" && (
-          <View style={styles.listContainer}>
-            <Text style={[styles.sectionHeader, { color: currentTheme.text }]}>
-              Incoming Requests
-            </Text>
-            {friendRequests.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Image
-                  source={require("@/assets/images/crying.png")}
-                  style={styles.emptyImage}
-                />
-                <Text style={[styles.emptyText, { color: currentTheme.text }]}>
-                  No incoming friend requests
-                </Text>
-              </View>
-            ) : (
-              friendRequests.map((user, index) => (
-                <Animated.View key={user.uid} entering={FadeIn.delay(index * 50)}>
-                  <OtherUser
-                    username={user.username}
-                    bannerColor={user.bannerColor}
-                    theme={user.theme}
-                    photoURL={user.photoURL}
-                    onAccept={() => handleAcceptFriendRequest(user.uid)}
-                    onReject={() => handleRejectFriendRequest(user.uid)}
-                    onBlock={() => handleBlockFriend(user.uid)}
-                  />
-                </Animated.View>
-              ))
-            )}
-            <Text style={[styles.sectionHeader, { color: currentTheme.text }]}>
-              Outgoing Requests
-            </Text>
-            {outgoingRequests.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Text style={[styles.emptyText, { color: currentTheme.text }]}>
-                  No outgoing friend requests
-                </Text>
-              </View>
-            ) : (
-              outgoingRequests.map((user, index) => (
-                <Animated.View key={user.uid} entering={FadeIn.delay(index * 50)}>
-                  <OtherUser
-                    username={user.username}
-                    bannerColor={user.bannerColor}
-                    theme={user.theme}
-                    photoURL={user.photoURL}
-                    onCancel={() => handleCancelFriendRequest(user.uid)}
-                  />
-                </Animated.View>
-              ))
-            )}
-          </View>
+          <FriendRequests
+            friendRequests={friendRequests}
+            outgoingRequests={outgoingRequests}
+            currentTheme={currentTheme}
+            onAccept={handleAcceptFriendRequest}
+            onReject={handleRejectFriendRequest}
+            onBlock={handleBlockFriend}
+            onCancel={handleCancelFriendRequest}
+          />
         )}
-
         {currentTab === "add" && (
-          <View style={styles.addFriendsContainer}>
-            <TextInput
-              style={[
-                styles.searchInput,
-                { borderColor: currentTheme.text, color: currentTheme.text },
-              ]}
-              placeholder="Search users..."
-              placeholderTextColor={currentTheme.text}
-              value={searchTerm}
-              onChangeText={setSearchTerm}
-            />
-            <FlatList
-              data={filteredUsers}
-              keyExtractor={(item) => item.uid}
-              renderItem={({ item, index }) => (
-                <Animated.View entering={FadeIn.delay(index * 50)}>
-                  <OtherUser
-                    username={item.username}
-                    bannerColor={item.bannerColor}
-                    theme={item.theme}
-                    photoURL={item.photoURL}
-                    onAdd={() => handleSendFriendRequest(item.uid)}
-                    requestSent={sentRequests.includes(item.uid)}
-                  />
-                </Animated.View>
-              )}
-            />
-          </View>
+          <AddFriends
+            filteredUsers={paginatedUsers}
+            searchTerm={searchTerm}
+            onChangeSearch={(text) => {
+              setSearchTerm(text);
+              setCurrentPage(1);
+            }}
+            currentTheme={currentTheme}
+            onSendRequest={handleSendFriendRequest}
+            requestSent={sentRequests}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         )}
       </Animated.View>
 
@@ -421,45 +341,31 @@ export default function FriendsTab() {
       <View style={styles.legendContainer}>
         <View style={styles.legendItem}>
           <Ionicons name="person-remove-outline" size={20} color="red" />
-          <Text style={[styles.legendText, { color: currentTheme.text }]}>
-            Remove
-          </Text>
+          <Text style={[styles.legendText, { color: currentTheme.text }]}>Remove</Text>
         </View>
         <View style={styles.legendItem}>
           <Ionicons name="hand-left-outline" size={20} color="orange" />
-          <Text style={[styles.legendText, { color: currentTheme.text }]}>
-            Block
-          </Text>
+          <Text style={[styles.legendText, { color: currentTheme.text }]}>Block</Text>
         </View>
         <View style={styles.legendItem}>
           <Ionicons name="checkmark-outline" size={20} color="green" />
-          <Text style={[styles.legendText, { color: currentTheme.text }]}>
-            Accept
-          </Text>
+          <Text style={[styles.legendText, { color: currentTheme.text }]}>Accept</Text>
         </View>
         <View style={styles.legendItem}>
           <Ionicons name="close-outline" size={20} color="red" />
-          <Text style={[styles.legendText, { color: currentTheme.text }]}>
-            Reject
-          </Text>
+          <Text style={[styles.legendText, { color: currentTheme.text }]}>Reject</Text>
         </View>
         <View style={styles.legendItem}>
           <Ionicons name="person-add-outline" size={20} color="green" />
-          <Text style={[styles.legendText, { color: currentTheme.text }]}>
-            Add
-          </Text>
+          <Text style={[styles.legendText, { color: currentTheme.text }]}>Add</Text>
         </View>
         <View style={styles.legendItem}>
           <Ionicons name="paper-plane-outline" size={20} color="blue" />
-          <Text style={[styles.legendText, { color: currentTheme.text }]}>
-            Request Sent
-          </Text>
+          <Text style={[styles.legendText, { color: currentTheme.text }]}>Request Sent</Text>
         </View>
         <View style={styles.legendItem}>
           <Ionicons name="close-circle-outline" size={20} color="purple" />
-          <Text style={[styles.legendText, { color: currentTheme.text }]}>
-            Cancel Request
-          </Text>
+          <Text style={[styles.legendText, { color: currentTheme.text }]}>Cancel Request</Text>
         </View>
       </View>
     </View>
@@ -491,11 +397,6 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: "#fff", fontSize: 12 },
   listContainer: { flex: 1 },
-  emptyContainer: { alignItems: "center", marginTop: 20 },
-  emptyImage: { width: 100, height: 100, marginBottom: 10 },
-  emptyText: { fontSize: 16, textAlign: "center" },
-  addFriendsContainer: { flex: 1 },
-  searchInput: { height: 40, borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, marginBottom: 12 },
   legendContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -506,5 +407,12 @@ const styles = StyleSheet.create({
   },
   legendItem: { flexDirection: "row", alignItems: "center" },
   legendText: { marginLeft: 4, fontSize: 14 },
-  sectionHeader: { fontSize: 18, fontWeight: "bold", marginVertical: 8 },
+  fallbackContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  fallbackImage: { width: 120, height: 120, marginBottom: 16 },
+  fallbackText: { fontSize: 18, textAlign: "center" },
 });

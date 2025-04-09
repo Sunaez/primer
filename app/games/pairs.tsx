@@ -1,3 +1,4 @@
+// /app/games/pairs.tsx
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -8,10 +9,10 @@ import {
   Animated as RNAnimated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useThemeContext } from '@/context/UserContext';
+import { useThemeContext, useUserContext } from '@/context/UserContext'; // <-- Added useUserContext
+import { notLoggedInComments } from '@/constants/NotLoggedInComments'; // <-- Import notLoggedInComments
 import THEMES from '@/constants/themes';
 import AllShapes from '@/components/AllShapes';
-// Ensure the import path matches your project structure.
 import { uploadPairsGameScore } from '@/components/backend/PairsScoreService';
 
 // Determine layout based on window width
@@ -85,6 +86,7 @@ export default function PairMatch() {
   const { themeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
   const router = useRouter();
+  const { user } = useUserContext(); // <-- Get the current user
 
   // Grid state: an array of 10 cards (one pair per shape)
   const [grid, setGrid] = useState<CardItem[]>([]);
@@ -170,17 +172,23 @@ export default function PairMatch() {
   useEffect(() => {
     if (gameOver) {
       const totalTimeMs = Date.now() - startTime;
-      uploadPairsGameScore(new Date(startTime).toISOString(), turns, totalTimeMs)
-        .then((docId: string) => {
-          console.log("Score uploaded, docId:", docId);
-          setUploadStatus("Score Uploaded!");
-        })
-        .catch((err: any) => {
-          console.error("Score upload failed:", err);
-          setUploadStatus("Score Upload Failed.");
-        });
+      if (user) {
+        uploadPairsGameScore(new Date(startTime).toISOString(), turns, totalTimeMs)
+          .then((docId: string) => {
+            console.log("Score uploaded, docId:", docId);
+            setUploadStatus("Score Uploaded!");
+          })
+          .catch((err: any) => {
+            console.error("Score upload failed:", err);
+            setUploadStatus("Score Upload Failed.");
+          });
+      } else {
+        const comment =
+          notLoggedInComments[Math.floor(Math.random() * notLoggedInComments.length)];
+        setUploadStatus(comment);
+      }
     }
-  }, [gameOver, startTime, turns]);
+  }, [gameOver, startTime, turns, user]);
 
   // When a card is tapped (only if preview is done and input is not disabled)
   const handleCardPress = (index: number) => {

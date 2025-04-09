@@ -76,11 +76,20 @@ export default function Freeplay() {
     animateSelected(selectedIndex);
   }, []);
 
-  // Animate the selected square’s values to 1.
+  // Animate the selected square’s values to 1 using ease in-out.
   function animateSelected(index: number) {
-    scaleAndOpacity[index].value = withTiming(1, { duration: 200 });
-    borderAnims[index].value = withTiming(1, { duration: 200 });
-    tapTextAnims[index].value = withTiming(1, { duration: 150 });
+    scaleAndOpacity[index].value = withTiming(1, {
+      duration: 200,
+      easing: Easing.inOut(Easing.ease),
+    });
+    borderAnims[index].value = withTiming(1, {
+      duration: 200,
+      easing: Easing.inOut(Easing.ease),
+    });
+    tapTextAnims[index].value = withTiming(1, {
+      duration: 150,
+      easing: Easing.inOut(Easing.ease),
+    });
   }
 
   // Called when a user selects a game square.
@@ -91,23 +100,35 @@ export default function Freeplay() {
     }
 
     // Animate deselection of the current square.
-    scaleAndOpacity[selectedIndex].value = withTiming(0, { duration: 200 });
-    borderAnims[selectedIndex].value = withTiming(0, { duration: 200 });
-    tapTextAnims[selectedIndex].value = withTiming(0, { duration: 150 });
+    scaleAndOpacity[selectedIndex].value = withTiming(0, {
+      duration: 200,
+      easing: Easing.inOut(Easing.ease),
+    });
+    borderAnims[selectedIndex].value = withTiming(0, {
+      duration: 200,
+      easing: Easing.inOut(Easing.ease),
+    });
+    tapTextAnims[selectedIndex].value = withTiming(0, {
+      duration: 150,
+      easing: Easing.inOut(Easing.ease),
+    });
 
     // Determine slide direction.
     const dir = newIndex > selectedIndex ? -300 : 300;
     // Animate instructions sliding out.
     instructionsX.value = withTiming(
       dir,
-      { duration: 200, easing: Easing.out(Easing.quad) },
+      { duration: 200, easing: Easing.inOut(Easing.ease) },
       (finished) => {
         if (finished) {
           runOnJS(handleInstructionsReset)(newIndex, dir);
         }
       }
     );
-    instructionsOpacity.value = withTiming(0, { duration: 150 });
+    instructionsOpacity.value = withTiming(0, {
+      duration: 150,
+      easing: Easing.inOut(Easing.ease),
+    });
   }
 
   // Callback run on the JS thread once the slide-out animation completes.
@@ -117,8 +138,8 @@ export default function Freeplay() {
     instructionsOpacity.value = 0;
     animateSelected(newIndex);
     // Slide instructions back in.
-    instructionsX.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
-    instructionsOpacity.value = withTiming(1, { duration: 250 });
+    instructionsX.value = withTiming(0, { duration: 300, easing: Easing.inOut(Easing.ease) });
+    instructionsOpacity.value = withTiming(1, { duration: 250, easing: Easing.inOut(Easing.ease) });
   }
 
   function handlePlay() {
@@ -226,7 +247,7 @@ export default function Freeplay() {
     );
   }
 
-  // Render the video view. The video source is already set via the useEffect.
+  // Render the video view.
   function renderVideo() {
     const game = GAMES[selectedIndex];
     if (!game.video) {
@@ -237,17 +258,14 @@ export default function Freeplay() {
       );
     }
     return (
-      <View
-        style={[
-          styles.videoContainer,
-          { backgroundColor: currentTheme.background, borderColor: currentTheme.text },
-        ]}
-      >
+      <View style={[styles.videoContainer, { backgroundColor: currentTheme.background, borderColor: currentTheme.text }]}>
         <Pressable onPress={handleVideoPress} style={{ flex: 1 }}>
           <VideoView style={styles.video} player={player} />
           {isVideoPaused && (
             <View style={styles.overlay}>
-              <Text style={[styles.overlayText, { color: currentTheme.text }]}>Tap to play video</Text>
+              <Text style={[styles.overlayText, { color: currentTheme.text }]}>
+                Tap to play video
+              </Text>
             </View>
           )}
         </Pressable>
@@ -256,20 +274,26 @@ export default function Freeplay() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: currentTheme.background }]}
+      contentContainerStyle={styles.contentContainer}
+      showsVerticalScrollIndicator
+    >
       <Text style={[styles.title, { color: currentTheme.text }]}>Freeplay Games</Text>
       {renderGameList()}
       {renderInstructions()}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  /** Main Layout **/
   container: {
     flex: 1,
+  },
+  contentContainer: {
     paddingTop: 20,
     alignItems: 'center',
+    paddingBottom: 24,
   },
   title: {
     fontSize: 22,
@@ -277,8 +301,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-
-  /** Game Selection Squares **/
   squaresSection: {
     height: 160,
     marginBottom: 24,
@@ -309,8 +331,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.75,
   },
-
-  /** Instructions Section **/
   instructionsContainer: {
     width: '90%',
     borderRadius: 12,
@@ -330,8 +350,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     textAlign: 'center',
   },
-
-  /** Video Container & Scaling **/
   videoContainer: {
     width: '90%',
     maxWidth: 600,

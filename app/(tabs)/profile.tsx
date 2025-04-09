@@ -4,7 +4,6 @@ import {
   View,
   StyleSheet,
   Image,
-  Alert,
   TouchableOpacity,
   Text,
   ScrollView,
@@ -13,10 +12,10 @@ import {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { auth, db } from "@/components/firebaseConfig";
 import { doc, getDoc, updateDoc, deleteDoc, deleteField } from "firebase/firestore";
-import { useThemeContext } from "@/context/UserContext";
+import { useThemeContext, useUserContext } from "@/context/UserContext";
 import THEMES from "@/constants/themes";
-import UserSettings from "@/components/profile/UserSettings";
 import SignUpIn from "@/components/profile/SignUp-In";
+import UserSettings from "@/components/profile/UserSettings"; // Default export.
 import BannerChange from "@/components/profile/BannerChange";
 import PictureChange from "@/components/profile/PictureChange";
 import MostPlayedGraph from "@/components/profile/MostPlayedGraph";
@@ -24,54 +23,23 @@ import BestScoreGraph from "@/components/profile/BestScoreGraph";
 import MostConsistentGraph from "@/components/profile/MostConsistentGraph";
 
 export default function Profile() {
-  // ---- THEME HOOKS ----
-  const { themeName, setThemeName } = useThemeContext();
+  // Access the user and theme data from context.
+  const { user } = useUserContext();
+  const { themeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
 
-  // ---- USER STATE & PROFILE FIELDS ----
-  const [user, setUser] = useState(auth.currentUser);
-  const [username, setUsername] = useState("");
-  const [bannerColor, setBannerColor] = useState("#333333");
-  const [photoURL, setPhotoURL] = useState<string | null>(null);
-  const [localThemeName, setLocalThemeName] = useState<keyof typeof THEMES>("Dark");
+  // Responsive layout settings.
+  const screenWidth = Dimensions.get("window").width;
+  const graphWidth = screenWidth / 2.77;
+  const graphHeight = 80;
+  const singleGraphWidth = screenWidth / 2;
 
-  // Toggles & Panel Visibility
+  // Local state to control modal visibility.
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [showBannerChange, setShowBannerChange] = useState(false);
   const [showPictureChange, setShowPictureChange] = useState(false);
 
-  // Responsive layout
-  const screenWidth = Dimensions.get("window").width;
-
-  // ---- FETCH USER PREFERRED THEME ----
-  async function fetchUserPreferredTheme() {
-    if (auth.currentUser) {
-      const uid = auth.currentUser.uid;
-      try {
-        const snap = await getDoc(doc(db, "profile", uid));
-        if (snap.exists()) {
-          const data = snap.data();
-          const userTheme = data.theme || "Dark";
-          setLocalThemeName(userTheme);
-          setThemeName(userTheme);
-        } else {
-          console.log("Profile doc not found, defaulting to Dark theme.");
-          setThemeName("Dark");
-          setLocalThemeName("Dark");
-        }
-      } catch (error) {
-        console.error("Error fetching theme:", error);
-        setThemeName("Dark");
-        setLocalThemeName("Dark");
-      }
-    } else {
-      console.log("No user logged in, defaulting to Dark theme.");
-      setThemeName("Dark");
-      setLocalThemeName("Dark");
-    }
-  }
-
-  // ---- FETCH & UPDATE PROFILE DOC TO MATCH NEW SCHEMA ----
+  // Fetch extra profile data or perform schema corrections.
   async function fetchUserProfileData() {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
@@ -82,7 +50,7 @@ export default function Profile() {
       let updateNeeded = false;
       const updates: any = {};
 
-      // Add the friends object if it's missing.
+      // If the friends field is missing, add it.
       if (!("friends" in data)) {
         updates.friends = {
           friends: [],
@@ -98,16 +66,7 @@ export default function Profile() {
       }
       if (updateNeeded) {
         await updateDoc(profileDocRef, updates);
-        if (updates.friends) {
-          data.friends = updates.friends;
-        }
-        if (updates.stats) {
-          delete data.stats;
-        }
       }
-      setUsername(data.username || "");
-      setBannerColor(data.bannerColor || "#333333");
-      setPhotoURL(data.photoURL || null);
     } else {
       console.log("Profile doc not found (data)");
     }
@@ -119,141 +78,28 @@ export default function Profile() {
     }
   }, [user]);
 
-  // ---- UPDATE APPEARANCE (Banner & Profile Picture) ----
-  async function handleUpdateCustomization() {
-    if (!user) {
-      Alert.alert("Not logged in", "Log in to update your profile.");
-      return;
-    }
-    const uid = user.uid;
-    try {
-      await updateDoc(doc(db, "profile", uid), {
-        bannerColor,
-        photoURL,
-      });
-      Alert.alert("Profile Updated", "Your appearance has been updated!");
-    } catch (error: any) {
-      Alert.alert("Update Error", error.message || "An error occurred.");
-    }
-  }
-
-  // ---- SETTINGS PANEL CALLBACKS ----
-  const handleSettingsUpdate = async (
-    newUsername: string,
-    newTheme: keyof typeof THEMES
-  ) => {
-    if (!user) {
-      Alert.alert("Not logged in", "Log in to update your profile.");
-      return;
-    }
-    const uid = user.uid;
-    try {
-      await updateDoc(doc(db, "profile", uid), {
-        username: newUsername,
-        theme: newTheme,
-      });
-      setUsername(newUsername);
-      setLocalThemeName(newTheme);
-      setThemeName(newTheme);
-      Alert.alert("Profile Updated", "Your profile has been updated!");
-    } catch (error: any) {
-      console.error("Error updating profile:", error);
-      Alert.alert("Update Error", error.message || "An error occurred.");
-    }
-  };
-
-  const handleSettingsLogout = async () => {
-    try {
-      await auth.signOut();
-      resetProfileFields();
-      setUser(null);
-      setThemeName("Dark");
-      Alert.alert("Success", "Logged out successfully!");
-      setSettingsVisible(false);
-    } catch (error: any) {
-      Alert.alert("Error", error.message || "An error occurred.");
-    }
-  };
-
-  const handleSettingsDelete = () => {
-    Alert.alert(
-      "Delete Account",
-      "Are you sure you want to delete your account? This action cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            await handleDeleteConfirm();
-            setSettingsVisible(false);
-          },
-        },
-      ]
-    );
-  };
-
-  async function handleDeleteConfirm() {
-    if (!user || !user.email) {
-      Alert.alert("Not logged in", "No user to delete.");
-      return;
-    }
-    try {
-      const uid = user.uid;
-      await deleteDoc(doc(db, "profile", uid));
-      await user.delete();
-      Alert.alert("Deleted", "Your profile and account have been deleted.");
-      resetProfileFields();
-      setUser(null);
-    } catch (err: any) {
-      Alert.alert("Error Deleting Account", err.message || "Could not delete account.");
-    }
-  }
-
-  function resetProfileFields() {
-    setUsername("");
-    setBannerColor("#333333");
-    setPhotoURL(null);
-    setLocalThemeName("Dark");
-    setThemeName("Dark");
-  }
-
+  // If no user is logged in, show the SignUpIn component.
   if (!user) {
     return (
       <SignUpIn
-        onAuthSuccess={async () => {
-          const currentUser = auth.currentUser;
-          setUser(currentUser);
-          if (currentUser) {
-            await fetchUserPreferredTheme();
-          }
+        onAuthSuccess={() => {
+          // When a user signs in/up, the UserContext via onSnapshot will update automatically.
         }}
       />
     );
   }
 
-  const themeStyles = {
-    backgroundColor: currentTheme.background,
-    textColor: currentTheme.text,
-    primary: currentTheme.primary,
-  };
-
-  // Graph dimensions: adjust these values in one place
-  const graphWidth = (screenWidth) / 2.77; // Two graphs per row; 72px reserved for margins/padding
-  const graphHeight = 80; // Height for all graphs
-  const singleGraphWidth = screenWidth /2; // For a single full-width graph row
-
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: themeStyles.backgroundColor }]}
+      style={[styles.container, { backgroundColor: currentTheme.background }]}
       contentContainerStyle={styles.scrollContentContainer}
     >
       {/* Header Section */}
       <View style={[styles.headerContainer, { height: 200 }]}>
-        <View style={[styles.bannerContainer, { backgroundColor: bannerColor }]} />
+        <View style={[styles.bannerContainer, { backgroundColor: user.bannerColor }]} />
         <View style={styles.profileImageWrapper}>
-          {photoURL ? (
-            <Image source={{ uri: photoURL }} style={styles.profileImage} resizeMode="cover" />
+          {user.photoURL ? (
+            <Image source={{ uri: user.photoURL }} style={styles.profileImage} resizeMode="cover" />
           ) : (
             <View style={[styles.profileImage, { backgroundColor: "#999" }]} />
           )}
@@ -271,14 +117,13 @@ export default function Profile() {
 
       {/* Info Section */}
       <View style={styles.infoContainer}>
-        <Text style={[styles.text, { color: themeStyles.textColor }]}>
-          {username ? `Welcome, ${username}!` : `Welcome, ${user.email}`}
+        <Text style={[styles.text, { color: currentTheme.text }]}>
+          {user.username ? `Welcome, ${user.username}!` : `Welcome!`}
         </Text>
       </View>
 
       {/* Graphs Section */}
       <View style={styles.graphsSection}>
-        {/* Row 1: Two graphs side-by-side */}
         <View style={styles.graphsRow}>
           <View style={[styles.graphContainer, { backgroundColor: currentTheme.card }]}>
             <MostPlayedGraph chartWidth={graphWidth} chartHeight={graphHeight} />
@@ -287,7 +132,6 @@ export default function Profile() {
             <BestScoreGraph chartWidth={graphWidth} chartHeight={graphHeight} />
           </View>
         </View>
-        {/* Row 2: Single graph (Most Consistent) */}
         <View style={styles.singleGraphRow}>
           <View style={[styles.graphContainer, { backgroundColor: currentTheme.card, width: singleGraphWidth }]}>
             <MostConsistentGraph chartWidth={singleGraphWidth} chartHeight={graphHeight} />
@@ -295,34 +139,31 @@ export default function Profile() {
         </View>
       </View>
 
-      {/* Spacing at bottom */}
       <View style={{ height: 40 }} />
 
       {/* Modals */}
+      {/* UserSettings now handles all settings logic via direct DB updates and context. */}
       <UserSettings
         visible={settingsVisible}
-        initialUsername={username}
-        initialTheme={localThemeName}
-        onUpdateProfile={handleSettingsUpdate}
-        onLogout={handleSettingsLogout}
-        onDeleteAccount={handleSettingsDelete}
         onClose={() => setSettingsVisible(false)}
       />
+
       <BannerChange
         visible={showBannerChange}
-        initialColor={bannerColor}
+        initialColor={user.bannerColor}
         onCancel={() => setShowBannerChange(false)}
         onConfirm={(color) => {
-          setBannerColor(color);
+          // Optionally update Firestore or context here.
           setShowBannerChange(false);
         }}
       />
+
       <PictureChange
         visible={showPictureChange}
-        initialPhotoURL={photoURL}
+        initialPhotoURL={user.photoURL}
         onCancel={() => setShowPictureChange(false)}
         onConfirm={(newPhotoURL) => {
-          setPhotoURL(newPhotoURL);
+          // Optionally update Firestore or context here.
           setShowPictureChange(false);
         }}
       />

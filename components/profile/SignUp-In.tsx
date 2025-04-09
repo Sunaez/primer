@@ -1,5 +1,5 @@
 // /components/profile/SignUp-In.tsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
@@ -7,102 +7,141 @@ import {
   Button,
   Text,
   Alert,
+  TouchableOpacity,
 } from "react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  interpolate,
+} from "react-native-reanimated";
 import { auth, db } from "@/components/firebaseConfig";
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { useUserContext, useThemeContext, UserProfile, ThemeName } from "@/context/UserContext";
 import THEMES from "@/constants/themes";
-
-// Import adjectives and names from your UsernameGenerator constants
 import adjectives from "@/constants/UsernameGenerator/adjectives";
 import names from "@/constants/UsernameGenerator/names";
 
+// Regex: Min 8 chars, 1 uppercase, 1 lowercase, 1 number
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/;
+
 type SignUpInProps = {
-  // Called when the user successfully logs in or signs up.
   onAuthSuccess: () => void;
 };
 
 export default function SignUpIn({ onAuthSuccess }: SignUpInProps) {
+  // Email/password inputs
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
 
-  // Use our unified context for theme (backward compatibility)
+  // Toggles for sign-up vs. login, and forgot-password mode
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+
+  // For theme and user context
   const { themeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
   const { setUser } = useUserContext();
 
-  // Function to generate a random username.
+  // A shared value to animate the password container’s height
+  const passContainerHeight = useSharedValue(1); // 1 means fully visible, 0 means hidden
+
+  // Animated style to interpolate container height between 0 and 60 (adjust as you wish)
+  const passAnimatedStyle = useAnimatedStyle(() => {
+    const height = interpolate(passContainerHeight.value, [0, 1], [0, 60]);
+    return {
+      height,
+      opacity: passContainerHeight.value,
+      overflow: "hidden",
+    };
+  });
+
+  // Toggle the forgot password mode
+  const toggleForgotPassword = () => {
+    setIsForgotPassword(!isForgotPassword);
+    // If forgetting password, hide the password container; otherwise, show it
+    passContainerHeight.value = withTiming(isForgotPassword ? 1 : 0, { duration: 300 });
+  };
+
+  // Validate password meets the security requirements
+  function validatePassword(pw: string) {
+    return passwordRegex.test(pw);
+  }
+
+  // Generate a random username (for new sign-ups)
   function generateRandomUsername() {
-    const randomAdjective =
-      adjectives[Math.floor(Math.random() * adjectives.length)];
-    const randomName =
-      names[Math.floor(Math.random() * names.length)];
+    const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const randomName = names[Math.floor(Math.random() * names.length)];
     const randomNumber = Math.floor(Math.random() * 98) + 2;
     return `${randomAdjective}${randomName}${randomNumber}`;
   }
 
+  // Handle sign-up or login flow
   const handleAuthAction = async () => {
-    if (!email.trim() || !password) {
-      Alert.alert("Input Error", "Please provide a valid email and password.");
+    if (!email.trim()) {
+      Alert.alert("Input Error", "Please provide a valid email.");
       return;
     }
+    if (!isForgotPassword && !password) {
+      Alert.alert("Input Error", "Please provide a valid password.");
+      return;
+    }
+    if (isSignUp && !isForgotPassword && !validatePassword(password)) {
+      Alert.alert(
+        "Weak Password",
+        "Password must be at least 8 characters, with 1 uppercase, 1 lowercase, and 1 number."
+      );
+      return;
+    }
+
     try {
+      if (isForgotPassword) {
+        // Forgot password flow
+        await sendPasswordResetEmail(auth, email.trim());
+        Alert.alert("Reset Email Sent", "Check your inbox for a password reset email.");
+        toggleForgotPassword(); // hide forgot pass mode
+        return;
+      }
+
       if (isSignUp) {
-        // Sign Up Flow
-        const userCred = await createUserWithEmailAndPassword(
-          auth,
-          email.trim(),
-          password
-        );
+        // Sign-up flow
+        const userCred = await createUserWithEmailAndPassword(auth, email.trim(), password);
         const uid = userCred.user.uid;
         const randomUsername = generateRandomUsername();
-        // Define profileData and cast the theme property as ThemeName.
         const profileData: Omit<UserProfile, "uid"> = {
           username: randomUsername,
           bannerColor: "#333333",
           photoURL: null,
           theme: "Dark" as ThemeName,
-          friends: {
-            friends: [],
-            friendRequests: [],
-            blocked: [],
-          },
+          friends: { friends: [], friendRequests: [], blocked: [] },
         };
         await setDoc(doc(db, "profile", uid), profileData);
-        // Update UserContext immediately.
         setUser({ uid, ...profileData });
         Alert.alert(
           "Success",
-          `Account created successfully!\nYour temporary username is "${randomUsername}". Change it in your profile.`
+          `Account created successfully!\nYour temporary username is "${randomUsername}".`
         );
         onAuthSuccess();
       } else {
-        // Sign In Flow
-        const userCred = await signInWithEmailAndPassword(
-          auth,
-          email.trim(),
-          password
-        );
+        // Login flow
+        const userCred = await signInWithEmailAndPassword(auth, email.trim(), password);
         const uid = userCred.user.uid;
         const profileRef = doc(db, "profile", uid);
         const snap = await getDoc(profileRef);
         if (!snap.exists()) {
+          // Create a default profile if none exists
           const randomUsername = generateRandomUsername();
           const profileData: Omit<UserProfile, "uid"> = {
             username: randomUsername,
             bannerColor: "#333333",
             photoURL: null,
             theme: "Dark" as ThemeName,
-            friends: {
-              friends: [],
-              friendRequests: [],
-              blocked: [],
-            },
+            friends: { friends: [], friendRequests: [], blocked: [] },
           };
           await setDoc(profileRef, profileData);
           setUser({ uid, ...profileData });
@@ -111,13 +150,21 @@ export default function SignUpIn({ onAuthSuccess }: SignUpInProps) {
         onAuthSuccess();
       }
     } catch (error: any) {
-      console.error("Authentication error:", error);
-      Alert.alert("Error", error.message || "An error occurred. Please check your input or try again later.");
+      // Email enumeration handling
+      if (isSignUp && error.code === "auth/email-already-in-use") {
+        Alert.alert("Error", "This email is already in use.");
+      } else if (!isSignUp && error.code === "auth/user-not-found") {
+        Alert.alert("Error", "No account found with this email.");
+      } else {
+        console.error("Authentication error:", error);
+        Alert.alert("Error", error.message || "Check your input or try again later.");
+      }
     }
   };
 
   return (
     <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
+      {/* Email Field (always visible) */}
       <TextInput
         style={[styles.input, { color: currentTheme.text, borderColor: currentTheme.text }]}
         placeholder="Email"
@@ -127,29 +174,50 @@ export default function SignUpIn({ onAuthSuccess }: SignUpInProps) {
         keyboardType="email-address"
         autoCapitalize="none"
       />
-      <TextInput
-        style={[styles.input, { color: currentTheme.text, borderColor: currentTheme.text }]}
-        placeholder="Password"
-        placeholderTextColor={currentTheme.text}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+      {/* Password field container (animated) */}
+      <Animated.View style={[styles.passwordContainer, passAnimatedStyle]}>
+        {!isForgotPassword && (
+          <TextInput
+            style={[styles.input, { color: currentTheme.text, borderColor: currentTheme.text }]}
+            placeholder="Password"
+            placeholderTextColor={currentTheme.text}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+        )}
+      </Animated.View>
+
+      {/* Auth Button (Sign Up, Log In, or Reset Password) */}
       <View style={styles.buttonContainer}>
         <Button
-          title={isSignUp ? "Sign Up" : "Log In"}
+          title={
+            isForgotPassword
+              ? "RESET PASSWORD"
+              : isSignUp
+              ? "Sign Up"
+              : "Log In"
+          }
           onPress={handleAuthAction}
           color={currentTheme.primary}
         />
       </View>
-      <Text
-        style={[styles.toggleText, { color: currentTheme.text }]}
-        onPress={() => setIsSignUp((prev) => !prev)}
-      >
-        {isSignUp
-          ? "Already have an account? Log in"
-          : "Don't have an account? Sign up"}
-      </Text>
+
+      {/* Toggle between login & sign-up */}
+      <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
+        <Text style={[styles.toggleText, { color: currentTheme.text }]}>
+          {isSignUp
+            ? "Already have an account? Log in"
+            : "Don't have an account? Sign up"}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Toggle forgot password */}
+      <TouchableOpacity onPress={toggleForgotPassword}>
+        <Text style={[styles.toggleText, { color: currentTheme.text }]}>
+          {isForgotPassword ? "Cancel forgot password" : "Forgot password?"}
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -159,6 +227,9 @@ const styles = StyleSheet.create({
     padding: 16,
     flex: 1,
     justifyContent: "center",
+  },
+  passwordContainer: {
+    overflow: "hidden",
   },
   input: {
     height: 40,

@@ -1,3 +1,4 @@
+// /components/NavigationBar/MobileNavBar.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { Image, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
@@ -22,8 +23,7 @@ function AnimatedTabIcon({
   focused: boolean;
   size: number;
 }) {
-  // Instead of using useEffect to update a shared value,
-  // we directly use withTiming in the animated style.
+  // Animated style for scaling
   const animatedStyle = useAnimatedStyle(() => {
     return {
       transform: [{ scale: withTiming(focused ? 1.1 : 1, { duration: 200 }) }],
@@ -57,12 +57,12 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
 
   const ICON_SIZE = 28;
 
-  // Memoize the screenOptions to avoid creating new objects on each render.
+  // For mobile, we use the new icon colors per tab.
   const screenOptions = useMemo(
     () => ({
       tabBarShowLabel: false,
-      tabBarActiveTintColor: theme.primary,
-      tabBarInactiveTintColor: theme.secondary,
+      tabBarActiveTintColor: theme.contrast,
+      tabBarInactiveTintColor: theme.text,
       tabBarActiveBackgroundColor: theme.selection,
       tabBarInactiveBackgroundColor: theme.background,
       tabBarStyle: {
@@ -84,7 +84,7 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
         name="index"
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <AnimatedTabIcon name="home-sharp" size={ICON_SIZE} color={color} focused={focused} />
+            <AnimatedTabIcon name="home-sharp" size={ICON_SIZE} color={focused ? theme.daily : theme.daily} focused={focused} />
           ),
         }}
       />
@@ -94,7 +94,7 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
         name="freeplay"
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <AnimatedTabIcon name="game-controller" size={ICON_SIZE} color={color} focused={focused} />
+            <AnimatedTabIcon name="game-controller" size={ICON_SIZE} color={focused ? theme.freeplay : theme.freeplay} focused={focused} />
           ),
         }}
       />
@@ -104,7 +104,7 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
         name="social"
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <AnimatedTabIcon name="chatbubbles" size={ICON_SIZE} color={color} focused={focused} />
+            <AnimatedTabIcon name="chatbubbles" size={ICON_SIZE} color={focused ? theme.social : theme.social} focused={focused} />
           ),
         }}
       />
@@ -114,7 +114,7 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
         name="friends"
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <AnimatedTabIcon name="people-circle" size={ICON_SIZE} color={color} focused={focused} />
+            <AnimatedTabIcon name="people-circle" size={ICON_SIZE} color={focused ? theme.friends : theme.friends} focused={focused} />
           ),
         }}
       />
@@ -136,7 +136,7 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
                 />
               </Animated.View>
             ) : (
-              <AnimatedTabIcon name="person" size={ICON_SIZE} color={color} focused={focused} />
+              <AnimatedTabIcon name="person" size={ICON_SIZE} color={theme.text} focused={focused} />
             ),
         }}
       />

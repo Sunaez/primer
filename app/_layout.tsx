@@ -1,23 +1,53 @@
-// /app/_layout.tsx
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
-import { Stack } from 'expo-router';
+import { View, ActivityIndicator, StyleSheet, SafeAreaView } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
 import * as Font from 'expo-font';
-// Update the provider import to use UserProvider.
-import { UserProvider, useThemeContext } from '@/context/UserContext';
+import { UserProvider, useUserContext } from '@/context/UserContext';
 import THEMES from '@/constants/themes';
+import OnboardingModal from '@/components/Onboarding/OnboardingModal';
 
 function RootContent() {
-  const { themeName } = useThemeContext();
-  const currentTheme = THEMES[themeName] || THEMES.Dark;
+  const { user, loading } = useUserContext();
+  // Use the user's theme if available, otherwise default to Dark.
+  const currentTheme = THEMES[user ? user.theme : 'Dark'];
+
+  if (loading) {
+    return (
+      <View style={[styles.loaderContainer, { backgroundColor: currentTheme.background }]}>
+        <ActivityIndicator size="large" color={currentTheme.primary} />
+      </View>
+    );
+  }
 
   return (
-    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: currentTheme.background }]}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
-    </View>
+    </SafeAreaView>
+  );
+}
+
+// This component manages the onboarding state and navigation.
+function AppContainer() {
+  const { user } = useUserContext();
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
+  const router = useRouter();
+
+  const handleOnboardingComplete = () => {
+    setOnboardingCompleted(true);
+    // Navigate to the main interface when onboarding completes.
+    router.push('/(tabs)');
+  };
+
+  return (
+    <>
+      <RootContent />
+      {(!user && !onboardingCompleted) && (
+        <OnboardingModal visible={true} onClose={handleOnboardingComplete} />
+      )}
+    </>
   );
 }
 
@@ -26,20 +56,17 @@ export default function RootLayout() {
 
   useEffect(() => {
     async function loadFonts() {
-      await Font.loadAsync({
-        Parkinsans: require('@/assets/fonts/Parkinsans.ttf'),
-      });
-
-      // Set default text styling to use Parkinsans
-      (Text as any).defaultProps = (Text as any).defaultProps || {};
-      (Text as any).defaultProps.style = {
-        fontFamily: 'Parkinsans',
-        ...(Text as any).defaultProps.style,
-      };
-
-      setFontsLoaded(true);
+      try {
+        await Font.loadAsync({
+          Parkinsans: require('@/assets/fonts/Parkinsans.ttf'),
+        });
+        setFontsLoaded(true);
+      } catch (error) {
+        console.error('Error loading fonts', error);
+        // Fallback: even if fonts fail to load, continue rendering the app.
+        setFontsLoaded(true);
+      }
     }
-
     loadFonts();
   }, []);
 
@@ -53,7 +80,7 @@ export default function RootLayout() {
 
   return (
     <UserProvider>
-      <RootContent />
+      <AppContainer />
     </UserProvider>
   );
 }
@@ -66,6 +93,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#121212',
   },
 });
+
+export { RootContent };

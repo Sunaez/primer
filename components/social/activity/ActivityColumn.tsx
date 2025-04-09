@@ -15,10 +15,11 @@ const ActivityColumn: React.FC<ActivityColumnProps> = ({ currentTheme, width }) 
       </Text>
       <Text style={[styles.message, { color: currentTheme.text }]}>
         This page is under construction. In the final version, you’ll see:
-        {'\n'}• Updates on friends’ new scores
+        {'\n'}• Updates on friends' new scores
         {'\n'}• Alerts for incoming friend requests
         {'\n'}• Notifications when a friend beats your score in a game
         {'\n'}• Play milestones, such as number of plays
+        {'\n'}• React and comment on friends' activities, like new scores 
       </Text>
     </View>
   );

@@ -1,3 +1,4 @@
+// /components/profile/MathsGame.tsx
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -8,9 +9,10 @@ import {
   Animated as RNAnimated,
 } from 'react-native';
 import { uploadMathsGameScore } from '@/components/backend/MathsScoreService';
-import { useThemeContext } from '@/context/UserContext';
+import { useThemeContext, useUserContext } from '@/context/UserContext';
 import THEMES from '@/constants/themes';
 import ReturnFreeplayButton from '@/components/ReturnFreeplayButton';
+import { notLoggedInComments } from '@/constants/NotLoggedInComments';
 
 interface Result {
   correct: boolean;
@@ -22,8 +24,6 @@ const TOTAL_QUESTIONS = 10;
 //////////////////////////
 // AnimatedCounter Component
 //////////////////////////
-// This component uses React Native's built-in Animated API (aliased as RNAnimated)
-// to animate a value from 0 to the target over the specified duration.
 const AnimatedCounter = ({
   target,
   duration,
@@ -63,6 +63,7 @@ const AnimatedCounter = ({
 export default function MathsGame() {
   const { themeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
+  const { user } = useUserContext();
 
   const [stage, setStage] = useState<'playing' | 'results'>('playing');
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -74,6 +75,9 @@ export default function MathsGame() {
   const [startTime, setStartTime] = useState<number>(0);
   const [datePlayed, setDatePlayed] = useState('');
   const [hasUploaded, setHasUploaded] = useState(false);
+  
+  // Store a random comment if no user is logged in
+  const [notLoggedInComment, setNotLoggedInComment] = useState("");
 
   useEffect(() => {
     if (stage === 'playing') {
@@ -81,6 +85,15 @@ export default function MathsGame() {
       generateQuestion();
     }
   }, [stage]);
+
+  // On game end, pick one random comment if no user is logged in
+  useEffect(() => {
+    if (stage === 'results' && !user) {
+      const comment =
+        notLoggedInComments[Math.floor(Math.random() * notLoggedInComments.length)];
+      setNotLoggedInComment(comment);
+    }
+  }, [stage, user]);
 
   useEffect(() => {
     if (stage === 'results' && !hasUploaded) {
@@ -92,7 +105,6 @@ export default function MathsGame() {
     const num1 = Math.floor(Math.random() * 10) + 1;
     const num2 = Math.floor(Math.random() * 10) + 1;
     const answer = num1 + num2;
-
     setCurrentQuestion(`${num1} + ${num2}`);
     setCorrectAnswer(answer);
     setChoices(generateRandomChoices(answer));
@@ -102,28 +114,22 @@ export default function MathsGame() {
   function generateRandomChoices(correct: number) {
     const choiceSet = new Set<number>();
     choiceSet.add(correct);
-
     while (choiceSet.size < 4) {
-      const offset = Math.floor(Math.random() * 11) - 5; // -5 to +5 range
+      const offset = Math.floor(Math.random() * 11) - 5; // range: -5 to +5
       const fakeAnswer = correct + offset;
       if (fakeAnswer >= 0) choiceSet.add(fakeAnswer);
     }
-
-    // Shuffle choices
     return Array.from(choiceSet).sort(() => Math.random() - 0.5);
   }
 
   function handleAnswer(selected: number) {
     if (correctAnswer === null) return;
-
     const timeTakenMs = Date.now() - startTime;
     const isCorrect = selected === correctAnswer;
-
-    setResults((prev) => [...prev, { correct: isCorrect, time: timeTakenMs / 1000 }]);
-    if (isCorrect) setScore((prev) => prev + 1);
-
+    setResults(prev => [...prev, { correct: isCorrect, time: timeTakenMs / 1000 }]);
+    if (isCorrect) setScore(prev => prev + 1);
     if (questionIndex < TOTAL_QUESTIONS - 1) {
-      setQuestionIndex((prev) => prev + 1);
+      setQuestionIndex(prev => prev + 1);
       generateQuestion();
     } else {
       setStage('results');
@@ -134,9 +140,10 @@ export default function MathsGame() {
     try {
       const totalTimeSec = results.reduce((sum, r) => sum + r.time, 0);
       const averageTimeMs = (totalTimeSec / TOTAL_QUESTIONS) * 1000;
-
-      await uploadMathsGameScore(datePlayed, score, averageTimeMs);
-
+      // Only attempt upload if user is logged in.
+      if (user) {
+        await uploadMathsGameScore(datePlayed, score, averageTimeMs);
+      }
       setHasUploaded(true);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to upload score.');
@@ -172,7 +179,9 @@ export default function MathsGame() {
           Played On: {new Date(datePlayed).toLocaleString()}
         </Text>
 
-        <Text style={[styles.uploadedLabel, { color: currentTheme.text }]}>Score Uploaded!</Text>
+        <Text style={[styles.uploadedLabel, { color: currentTheme.text }]}>
+          {user ? "Score Uploaded!" : notLoggedInComment}
+        </Text>
 
         <View style={styles.buttonRow}>
           <ReturnFreeplayButton />
@@ -214,53 +223,53 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
     fontSize: 32,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 16,
-    fontFamily: 'Parkinsans',
+    fontFamily: "Parkinsans",
   },
   stats: {
     fontSize: 20,
     marginVertical: 6,
-    textAlign: 'center',
-    fontFamily: 'Parkinsans',
+    textAlign: "center",
+    fontFamily: "Parkinsans",
   },
   question: {
     fontSize: 24,
     marginBottom: 8,
-    fontFamily: 'Parkinsans',
+    fontFamily: "Parkinsans",
   },
   problem: {
     fontSize: 40,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 24,
-    fontFamily: 'Parkinsans',
+    fontFamily: "Parkinsans",
   },
   answerGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-    width: '100%',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-around",
+    width: "100%",
   },
   answerButton: {
     padding: 20,
     borderRadius: 10,
     margin: 10,
-    width: '40%',
-    alignItems: 'center',
+    width: "40%",
+    alignItems: "center",
   },
   answerText: {
     fontSize: 24,
-    fontFamily: 'Parkinsans',
+    fontFamily: "Parkinsans",
   },
   buttonRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginTop: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   button: {
     padding: 16,
@@ -269,11 +278,11 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 20,
-    fontFamily: 'Parkinsans',
+    fontFamily: "Parkinsans",
   },
   uploadedLabel: {
     marginTop: 16,
     fontSize: 18,
-    fontFamily: 'Parkinsans',
+    fontFamily: "Parkinsans",
   },
 });
