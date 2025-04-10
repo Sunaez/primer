@@ -14,37 +14,98 @@ import THEMES from '@/constants/themes';
 import { Game, GAMES } from '@/constants/games';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { Asset } from 'expo-asset';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from 'react-native-reanimated';
 import { collection, query, getDocs, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/components/firebaseConfig';
+import { useRouter } from 'expo-router';
 
-//
-// Helper to seed a daily game from GAMES based on the current day.
-//
-const getDailyGame = (): Game => {
+/**
+ * Calculates a daily index based on days since epoch.
+ * Returns an object with two indices:
+ * - primary: used for the daily game.
+ * - secondary: the next game in the list (cyclically), ensuring they differ.
+ */
+const getDailyGameIndices = (gamesLength: number): { primary: number; secondary: number } => {
   const today = new Date();
   const daysSinceEpoch = Math.floor(today.getTime() / (1000 * 60 * 60 * 24));
-  const index = daysSinceEpoch % GAMES.length;
-  return GAMES[index];
+  const primary = daysSinceEpoch % gamesLength;
+  const secondary = (primary + 1) % gamesLength;
+  return { primary, secondary };
 };
+
+/**
+ * Helper component that displays the status icon (check or cross)
+ * inside an animated container. When the user hovers over it,
+ * the container expands in width to show appended text (either " complete" or " incomplete")
+ * with a matching background.
+ */
+const StatusIconWithHover: React.FC<{ completed: boolean; theme: any }> = ({
+  completed,
+  theme,
+}) => {
+  const [hovered, setHovered] = React.useState(false);
+
+  // Shared value for the container width. Initial width fits just the icon.
+  const containerWidth = useSharedValue(40);
+  React.useEffect(() => {
+    containerWidth.value = withTiming(hovered ? 140 : 40, { duration: 300 });
+  }, [hovered]);
+
+  const animatedContainerStyle = useAnimatedStyle(() => ({
+    width: containerWidth.value,
+  }));
+
+  // Use the theme values for the background.
+  const backgroundColor = completed ? theme.progressBar : theme.error;
+
+  return (
+    <Pressable onHoverIn={() => setHovered(true)} onHoverOut={() => setHovered(false)}>
+      <Animated.View
+        style={[
+          styles.statusIconWrapper,
+          animatedContainerStyle,
+          { backgroundColor },
+        ]}
+      >
+        <Ionicons
+          name={completed ? 'checkmark-circle' : 'close-circle'}
+          size={32}
+          color="#fff"
+        />
+        {hovered && (
+          <Text style={styles.statusText}>
+            {completed ? ' complete' : ' incomplete'}
+          </Text>
+        )}
+      </Animated.View>
+    </Pressable>
+  );
+};
+
 
 const Desktop: React.FC = () => {
   const { width } = useWindowDimensions();
   const { themeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
+  const router = useRouter();
 
-  // Get two games: one seeded daily and the second from the list.
-  const game1 = getDailyGame();
-  const game2 = GAMES[1];
+  // Get deterministic indices for today's games.
+  const { primary: index1, secondary: index2 } = getDailyGameIndices(GAMES.length);
+  const game1: Game = GAMES[index1];
+  const game2: Game = GAMES[index2];
 
-  // Get the actual logged in user's ID.
+  // Get the logged-in user's ID.
   const currentUid = auth.currentUser?.uid || '';
 
-  // State to track whether each game has been played today.
+  // State tracking whether each game has been played today.
   const [game1Completed, setGame1Completed] = React.useState(false);
   const [game2Completed, setGame2Completed] = React.useState(false);
 
-  // Generate today's date in MM/DD/YYYY format (without zero padding).
+  // Generate today's date in MM/DD/YYYY format.
   const dateObj = new Date();
   const month = dateObj.getMonth() + 1;
   const day = dateObj.getDate();
@@ -105,7 +166,9 @@ const Desktop: React.FC = () => {
   const totalHorizontalPadding = 32 + 16;
   const columnWidth = (width - totalHorizontalPadding) / 2;
 
+  //
   // Video player & animation for game1.
+  //
   const player1 = useVideoPlayer(null, (p) => {
     p.loop = true;
     p.muted = true;
@@ -133,7 +196,9 @@ const Desktop: React.FC = () => {
     }
   }, [game1.video, player1, containerScale1]);
 
+  //
   // Video player & animation for game2.
+  //
   const player2 = useVideoPlayer(null, (p) => {
     p.loop = true;
     p.muted = true;
@@ -161,6 +226,11 @@ const Desktop: React.FC = () => {
     }
   }, [game2.video, player2, containerScale2]);
 
+  // Navigation handler for playing a game.
+  const handlePlayGame = (game: Game) => {
+    router.push(`/games/${game.id}`);
+  };
+
   return (
     <View style={[styles.outerContainer, { backgroundColor: currentTheme.background }]}>
       <ScrollView contentContainerStyle={styles.outerContentContainer}>
@@ -171,11 +241,7 @@ const Desktop: React.FC = () => {
             contentContainerStyle={styles.columnContent}
           >
             <View style={styles.statusIconContainer}>
-              <Ionicons
-                name={game1Completed ? "checkmark-circle" : "close-circle"}
-                size={32}
-                color={game1Completed ? currentTheme.progressBar : currentTheme.error}
-              />
+              <StatusIconWithHover completed={game1Completed} theme={currentTheme} />
             </View>
             <Text style={[styles.titleText, { color: currentTheme.text }]}>{game1.title}</Text>
             <Text style={[styles.instructionsHeader, { color: currentTheme.text }]}>How it works:</Text>
@@ -193,7 +259,10 @@ const Desktop: React.FC = () => {
                 <Text style={{ color: currentTheme.text }}>No video available</Text>
               </View>
             )}
-            <Pressable style={[styles.playButton, { backgroundColor: currentTheme.button }]}>
+            <Pressable
+              style={[styles.playButton, { backgroundColor: currentTheme.button }]}
+              onPress={() => handlePlayGame(game1)}
+            >
               <Text style={[styles.playButtonText, { color: currentTheme.buttonText }]}>Play</Text>
             </Pressable>
           </ScrollView>
@@ -203,11 +272,7 @@ const Desktop: React.FC = () => {
             contentContainerStyle={styles.columnContent}
           >
             <View style={styles.statusIconContainer}>
-              <Ionicons
-                name={game2Completed ? "checkmark-circle" : "close-circle"}
-                size={32}
-                color={game2Completed ? currentTheme.progressBar : currentTheme.error}
-              />
+              <StatusIconWithHover completed={game2Completed} theme={currentTheme} />
             </View>
             <Text style={[styles.titleText, { color: currentTheme.text }]}>{game2.title}</Text>
             <Text style={[styles.instructionsHeader, { color: currentTheme.text }]}>How it works:</Text>
@@ -225,7 +290,10 @@ const Desktop: React.FC = () => {
                 <Text style={{ color: currentTheme.text }}>No video available</Text>
               </View>
             )}
-            <Pressable style={[styles.playButton, { backgroundColor: currentTheme.button }]}>
+            <Pressable
+              style={[styles.playButton, { backgroundColor: currentTheme.button }]}
+              onPress={() => handlePlayGame(game2)}
+            >
               <Text style={[styles.playButtonText, { color: currentTheme.buttonText }]}>Play</Text>
             </Pressable>
           </ScrollView>
@@ -268,7 +336,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 8,
-    marginTop: 40, // add top margin so content doesn't overlap the icon
+    marginTop: 40,
   },
   instructionsHeader: {
     fontSize: 18,
@@ -299,5 +367,20 @@ const styles = StyleSheet.create({
   playButtonText: {
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  statusIconWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    minHeight: 0, // Enforce constant height equal to the icon size
+  },
+  statusText: {
+    marginLeft: 4,
+    fontSize: 16,
+    color: '#fff',
+    lineHeight: 0,    // Force text line height to match icon height
+    alignSelf: 'center' // Keep text vertically centered
   },
 });

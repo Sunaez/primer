@@ -19,7 +19,7 @@ function calculateScoreIndex(totalTimeMs: number, totalTurns: number): number {
 
   // Convert total time from milliseconds to seconds.
   const x = totalTimeMs / 1000;
-  const y = (95 + totalTurns) * Math.exp(-((Math.log(2)) / 4) * (x - 1));
+  const y = (105 - totalTurns) * Math.exp(-((Math.log(2)) / 4) * (x - 1));
   return parseFloat(y.toFixed(3));
 }
 
