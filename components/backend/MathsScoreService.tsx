@@ -1,16 +1,15 @@
 import { uploadGameScore } from "./scoreService"
 
 /**
- * S(T, C):
+ * Calculate the score index for the Maths game using:
+ *   S(T, C) where:
  *   - T: reactionTime in ms
  *   - C: number of correct answers
  */
 function calculateScoreIndex(T: number, C: number): number {
   if (T > 0 && T <= 250) {
-    // f(T, C) = C * (5 - 5 * cos((π / 250) * T))
     return C * (5 - 5 * Math.cos((Math.PI / 250) * T));
   } else if (T > 250 && T < 10000) {
-    // f(T, C) = 10 * C * exp((ln(0.8) / 625) * (T - 250) / 2)
     const exponent = (Math.log(0.8) / 625) * ((T - 250) / 2);
     return 10 * C * Math.exp(exponent);
   } else {
@@ -19,17 +18,18 @@ function calculateScoreIndex(T: number, C: number): number {
 }
 
 /**
- * Upload a math game score
- *  - datePlayed: ISO date string of the session
- *  - totalScore: number of correct answers (C)
- *  - averageReactionTimeMs: average reaction time in ms (T)
+ * Upload a Maths game score.
+ *
+ * @param datePlayed - ISO date string representing when the game was played.
+ * @param totalScore - Total number of correct answers (C).
+ * @param averageReactionTimeMs - Average reaction time in ms (T).
+ * @returns A promise that resolves with the document ID of the saved score.
  */
 export async function uploadMathsGameScore(
   datePlayed: string,
   totalScore: number,
   averageReactionTimeMs: number
 ) {
-  // Format the date/time nicely
   const dateObj = new Date(datePlayed);
   const formattedDate = dateObj.toLocaleDateString("en-US");
   const formattedTime = dateObj.toLocaleTimeString("en-US", {
@@ -39,19 +39,15 @@ export async function uploadMathsGameScore(
     second: "2-digit",
   });
 
-  // Apply the new scoring formula
   const scoreIndex = calculateScoreIndex(averageReactionTimeMs, totalScore);
-
-  // Build the payload for Firestore
   const data = {
     date: formattedDate,
     time: formattedTime,
     averageReactionTime: Math.round(averageReactionTimeMs),
     score: totalScore,
-    scoreIndex: parseFloat(scoreIndex.toFixed(3)), // store to 3 decimal places
+    scoreIndex: parseFloat(scoreIndex.toFixed(3)),
     timestamp: Date.now(),
   };
 
-  // Now upload using the game id from games.ts ("maths")
   return await uploadGameScore("maths", data);
 }

@@ -1,4 +1,3 @@
-// /components/profile/UserSettings.tsx
 import React, { useState, useEffect } from "react";
 import {
   Modal,
@@ -35,6 +34,10 @@ export default function UserSettings({ visible, onClose }: UserSettingsProps) {
   // Local state for username and theme selection.
   const [username, setUsername] = useState(user.username);
   const [selectedTheme, setSelectedTheme] = useState<keyof typeof THEMES>(user.theme);
+
+  // State for the delete confirmation modal and confirmation text.
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [confirmationText, setConfirmationText] = useState("");
 
   // Retrieve the current theme from the user profile.
   const currentTheme = THEMES[user.theme] || THEMES.Dark;
@@ -73,7 +76,6 @@ export default function UserSettings({ visible, onClose }: UserSettingsProps) {
         theme: newTheme,
       });
       setUser({ ...user, username: newUsername, theme: newTheme });
-      Alert.alert("Profile Updated", "Your profile has been updated!");
     } catch (error: any) {
       Alert.alert("Update Error", error.message || "An error occurred while updating your profile.");
     }
@@ -102,142 +104,195 @@ export default function UserSettings({ visible, onClose }: UserSettingsProps) {
     }
   };
 
-  // Delete account (remove Firestore document and delete Firebase Auth user).
-  const handleDeleteAccount = async () => {
+  // Delete account - deletes all of the user's data.
+  // Adjust this function to delete any additional data (such as subcollections) if needed.
+  const handleConfirmDeletion = async () => {
     if (!user) return;
-    Alert.alert(
-      "Delete Account",
-      "Are you sure you want to delete your account? This action cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteDoc(doc(db, "profile", user.uid));
-              if (auth.currentUser) {
-                await auth.currentUser.delete();
-              }
-              setUser(null);
-              Alert.alert("Deleted", "Your profile and account have been deleted.");
-              onClose();
-            } catch (error: any) {
-              Alert.alert("Error Deleting Account", error.message || "Could not delete account.");
-            }
-          },
-        },
-      ]
-    );
+    try {
+      // Delete user profile and statistics documents from Firestore.
+      await deleteDoc(doc(db, "profile", user.uid));
+      await deleteDoc(doc(db, "Statistics", user.uid));
+      // Optionally, delete other data like user scores via Cloud Functions or recursive deletion.
+      
+      // Delete the Firebase Auth user.
+      if (auth.currentUser) {
+        await auth.currentUser.delete();
+      }
+      setUser(null);
+      Alert.alert("Deleted", "Your account and all your data have been deleted.");
+      setDeleteModalVisible(false);
+      onClose();
+    } catch (error: any) {
+      Alert.alert("Error Deleting Account", error.message || "Could not delete account.");
+    }
   };
 
   return (
-    <Modal visible={visible} transparent animationType="none">
-      <View style={styles.overlay}>
-        <Animated.View
-          style={[
-            styles.modalContainer,
-            { backgroundColor: currentTheme.background },
-            animatedStyle,
-          ]}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: currentTheme.text }]}>
-              Settings
-            </Text>
-            <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={28} color={currentTheme.text} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Content */}
-          <Text style={[styles.label, { color: currentTheme.text }]}>
-            Username:
-          </Text>
-          <TextInput
+    <>
+      <Modal visible={visible} transparent animationType="none">
+        <View style={styles.overlay}>
+          <Animated.View
             style={[
-              styles.input,
-              {
-                backgroundColor: currentTheme.background,
-                color: currentTheme.text,
-                borderColor: currentTheme.primary,
-              },
+              styles.modalContainer,
+              { backgroundColor: currentTheme.background },
+              animatedStyle,
             ]}
-            value={username}
-            onChangeText={setUsername}
-          />
+          >
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={[styles.title, { color: currentTheme.text }]}>
+                Settings
+              </Text>
+              <TouchableOpacity onPress={onClose}>
+                <Ionicons name="close" size={28} color={currentTheme.text} />
+              </TouchableOpacity>
+            </View>
 
-          <Text style={[styles.label, { color: currentTheme.text }]}>
-            Theme:
-          </Text>
-          <View style={styles.themeOptions}>
-            {Object.keys(THEMES).map((key) => {
-              const themeKey = key as keyof typeof THEMES;
-              return (
-                <TouchableOpacity
-                  key={key}
-                  style={[
-                    styles.themeOption,
-                    {
-                      borderColor:
-                        themeKey === selectedTheme
-                          ? currentTheme.primary
-                          : "#999",
-                      backgroundColor: THEMES[themeKey].background,
-                    },
-                  ]}
-                  onPress={() => handleSelectTheme(themeKey)}
-                >
-                  <Text style={{ color: THEMES[themeKey].text }}>{key}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Buttons */}
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
+            {/* Content */}
+            <Text style={[styles.label, { color: currentTheme.text }]}>
+              Username:
+            </Text>
+            <TextInput
               style={[
-                styles.button,
-                { backgroundColor: currentTheme.primary }, // Logout
-              ]}
-              onPress={handleLogout}
-            >
-              <Ionicons name="log-out-outline" size={20} color="#fff" />
-              <Text style={styles.buttonText}>Logout</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.button,
-                { backgroundColor: currentTheme.error }, // Delete account uses error color.
-              ]}
-              onPress={handleDeleteAccount}
-            >
-              <Ionicons name="trash-outline" size={20} color="#fff" />
-              <Text style={styles.buttonText}>Delete</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
-              style={[
-                styles.button,
+                styles.input,
                 {
-                  backgroundColor: currentTheme.confirmButton, // Unique confirm button color.
-                  flex: 1,
-                  justifyContent: "center",
+                  backgroundColor: currentTheme.background,
+                  color: currentTheme.text,
+                  borderColor: currentTheme.primary,
                 },
               ]}
-              onPress={handleConfirmUsername}
-            >
-              <Ionicons name="checkmark-outline" size={20} color="#fff" />
-              <Text style={styles.buttonText}>Confirm</Text>
-            </TouchableOpacity>
+              value={username}
+              onChangeText={setUsername}
+            />
+
+            <Text style={[styles.label, { color: currentTheme.text }]}>
+              Theme:
+            </Text>
+            <View style={styles.themeOptions}>
+              {Object.keys(THEMES).map((key) => {
+                const themeKey = key as keyof typeof THEMES;
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    style={[
+                      styles.themeOption,
+                      {
+                        borderColor:
+                          themeKey === selectedTheme
+                            ? currentTheme.primary
+                            : "#999",
+                        backgroundColor: THEMES[themeKey].background,
+                      },
+                    ]}
+                    onPress={() => handleSelectTheme(themeKey)}
+                  >
+                    <Text style={{ color: THEMES[themeKey].text }}>{key}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Buttons */}
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  { backgroundColor: currentTheme.primary }, // Logout button
+                ]}
+                onPress={handleLogout}
+              >
+                <Ionicons name="log-out-outline" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Logout</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  { backgroundColor: currentTheme.error }, // Delete account button uses error color.
+                ]}
+                onPress={() => setDeleteModalVisible(true)}
+              >
+                <Ionicons name="trash-outline" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Delete Account</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  {
+                    backgroundColor: currentTheme.confirmButton,
+                    flex: 1,
+                    justifyContent: "center",
+                  },
+                ]}
+                onPress={handleConfirmUsername}
+              >
+                <Ionicons name="checkmark-outline" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal visible={deleteModalVisible} transparent animationType="fade">
+        <View style={styles.deleteOverlay}>
+          <View style={[styles.deleteModalContainer, { backgroundColor: currentTheme.background }]}>
+            <Text style={[styles.deleteWarningText, { color: currentTheme.text }]}>
+              Deleting your account is a non-reversable process. Are you sure you want to delete your account? Type CONFIRM below and press the confirm button.
+            </Text>
+            <TextInput
+              style={[
+                styles.confirmInput,
+                {
+                  borderColor: currentTheme.primary,
+                  color: currentTheme.text,
+                },
+              ]}
+              placeholder="Type CONFIRM here"
+              placeholderTextColor={currentTheme.text}
+              value={confirmationText}
+              onChangeText={setConfirmationText}
+              autoCapitalize="characters"
+            />
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  {
+                    backgroundColor: confirmationText === "CONFIRM"
+                      ? currentTheme.error
+                      : "#666", // darkened appearance for inactive button
+                    flex: 1,
+                    justifyContent: "center",
+                  },
+                ]}
+                disabled={confirmationText !== "CONFIRM"}
+                onPress={handleConfirmDeletion}
+              >
+                <Ionicons name="trash-outline" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Delete Account</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  { backgroundColor: currentTheme.primary, flex: 1, justifyContent: "center" },
+                ]}
+                onPress={() => {
+                  setDeleteModalVisible(false);
+                  setConfirmationText("");
+                }}
+              >
+                <Ionicons name="close" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </Animated.View>
-      </View>
-    </Modal>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -311,5 +366,33 @@ const styles = StyleSheet.create({
     color: "#fff",
     marginLeft: 6,
     fontWeight: "600",
+  },
+  deleteOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  deleteModalContainer: {
+    width: "85%",
+    padding: 20,
+    borderRadius: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  deleteWarningText: {
+    fontSize: 16,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  confirmInput: {
+    height: 40,
+    borderWidth: 1,
+    borderRadius: 5,
+    paddingHorizontal: 8,
+    marginBottom: 12,
   },
 });

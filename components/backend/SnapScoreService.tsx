@@ -25,7 +25,6 @@ export async function uploadSnapGameScore(
   datePlayed: string,
   averageReactionTimeMs: number
 ): Promise<string> {
-  // Format date/time nicely.
   const dateObj = new Date(datePlayed);
   const formattedDate = dateObj.toLocaleDateString("en-US");
   const formattedTime = dateObj.toLocaleTimeString("en-US", {
@@ -35,10 +34,7 @@ export async function uploadSnapGameScore(
     second: "2-digit",
   });
 
-  // Calculate the score index using the provided sigmoid function.
   const scoreIndex = calculateScoreIndex(averageReactionTimeMs);
-
-  // Build the payload for the score.
   const data = {
     date: formattedDate,
     time: formattedTime,
@@ -47,6 +43,5 @@ export async function uploadSnapGameScore(
     timestamp: Date.now(),
   };
 
-  // Upload the score using the generic score service with the game id "snap".
   return await uploadGameScore("snap", data);
 }

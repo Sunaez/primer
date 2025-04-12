@@ -7,6 +7,8 @@ import {
   ScrollView,
   useWindowDimensions,
   Pressable,
+  Image,
+  Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useThemeContext } from '@/context/UserContext';
@@ -19,16 +21,49 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
 } from 'react-native-reanimated';
-import { collection, query, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '@/components/firebaseConfig';
 import { useRouter } from 'expo-router';
 
+// *********************************************************************
+// DailyStreakIndicator Component
+// *********************************************************************
+interface DailyStreakIndicatorProps {
+  streak: number;
+  complete: boolean;
+  theme: any;
+}
+
 /**
- * Calculates a daily index based on days since epoch.
- * Returns an object with two indices:
- * - primary: used for the daily game.
- * - secondary: the next game in the list (cyclically), ensuring they differ.
+ * Displays a fire icon with the daily streak number.
+ * - If complete === true, the fire icon displays using fire.gif (animated).
+ * - Otherwise, it displays using fire.png and, on web, applies a grayscale filter.
  */
+const DailyStreakIndicator: React.FC<DailyStreakIndicatorProps> = ({ streak, complete, theme }) => {
+  // Select asset based on whether daily games are complete.
+  const fireSource = complete
+    ? require('@/assets/images/fire.gif')
+    : require('@/assets/images/fire.png');
+
+  // For web, if incomplete, apply a grayscale filter.
+  const fireStyle =
+    Platform.OS === 'web'
+      ? complete
+        ? { width: 40, height: 40 }
+        : { width: 40, height: 40, filter: 'grayscale(100%)' }
+      : { width: 40, height: 40 };
+
+  return (
+    <View style={styles.streakIndicatorContainer}>
+      <Image source={fireSource} style={fireStyle} />
+      <Text style={[styles.streakText, { color: theme.text }]}>{streak}</Text>
+    </View>
+  );
+};
+
+// *********************************************************************
+// Helper: Daily game indices (deterministic for today)
+// *********************************************************************
 const getDailyGameIndices = (gamesLength: number): { primary: number; secondary: number } => {
   const today = new Date();
   const daysSinceEpoch = Math.floor(today.getTime() / (1000 * 60 * 60 * 24));
@@ -37,20 +72,13 @@ const getDailyGameIndices = (gamesLength: number): { primary: number; secondary:
   return { primary, secondary };
 };
 
-/**
- * Helper component that displays the status icon (check or cross)
- * inside an animated container. When the user hovers over it,
- * the container expands in width to show appended text (either " complete" or " incomplete")
- * with a matching background.
- */
-const StatusIconWithHover: React.FC<{ completed: boolean; theme: any }> = ({
-  completed,
-  theme,
-}) => {
+// *********************************************************************
+// Helper component for status icon with hover (existing code)
+// *********************************************************************
+const StatusIconWithHover: React.FC<{ completed: boolean; theme: any }> = ({ completed, theme }) => {
   const [hovered, setHovered] = React.useState(false);
-
-  // Shared value for the container width. Initial width fits just the icon.
   const containerWidth = useSharedValue(40);
+
   React.useEffect(() => {
     containerWidth.value = withTiming(hovered ? 140 : 40, { duration: 300 });
   }, [hovered]);
@@ -59,23 +87,12 @@ const StatusIconWithHover: React.FC<{ completed: boolean; theme: any }> = ({
     width: containerWidth.value,
   }));
 
-  // Use the theme values for the background.
   const backgroundColor = completed ? theme.progressBar : theme.error;
 
   return (
     <Pressable onHoverIn={() => setHovered(true)} onHoverOut={() => setHovered(false)}>
-      <Animated.View
-        style={[
-          styles.statusIconWrapper,
-          animatedContainerStyle,
-          { backgroundColor },
-        ]}
-      >
-        <Ionicons
-          name={completed ? 'checkmark-circle' : 'close-circle'}
-          size={32}
-          color="#fff"
-        />
+      <Animated.View style={[styles.statusIconWrapper, animatedContainerStyle, { backgroundColor }]}>
+        <Ionicons name={completed ? 'checkmark-circle' : 'close-circle'} size={32} color="#fff" />
         {hovered && (
           <Text style={styles.statusText}>
             {completed ? ' complete' : ' incomplete'}
@@ -86,7 +103,9 @@ const StatusIconWithHover: React.FC<{ completed: boolean; theme: any }> = ({
   );
 };
 
-
+// *********************************************************************
+// Main Desktop Component
+// *********************************************************************
 const Desktop: React.FC = () => {
   const { width } = useWindowDimensions();
   const { themeName } = useThemeContext();
@@ -105,14 +124,56 @@ const Desktop: React.FC = () => {
   const [game1Completed, setGame1Completed] = React.useState(false);
   const [game2Completed, setGame2Completed] = React.useState(false);
 
-  // Generate today's date in MM/DD/YYYY format.
+  // For demo purposes, assume an initial daily streak value.
+  // (In a real app, you would load this from Firestore.)
+  const [dailyStreak, setDailyStreak] = React.useState(0);
+
+  // Get today's date in two formats:
+  // one for score documents (MM/DD/YYYY) and one in ISO (YYYY-MM-DD) for streak updates.
   const dateObj = new Date();
   const month = dateObj.getMonth() + 1;
   const day = dateObj.getDate();
   const year = dateObj.getFullYear();
-  const today = `${month}/${day}/${year}`;
+  const todayScore = `${month}/${day}/${year}`;
+  const todayISO = dateObj.toISOString().split('T')[0];
 
-  // --- Check completion for game1 ---
+  // *********************************************************************
+  // Daily Streak Doc Creation/Update
+  // *********************************************************************
+  React.useEffect(() => {
+    async function updateDailyStreak() {
+      if (!currentUid) return;
+      const dailyStreakDocRef = doc(db, "Statistics", currentUid, "DailyStreak", "data");
+      try {
+        const docSnap = await getDoc(dailyStreakDocRef);
+        if (!docSnap.exists()) {
+          // Create the doc with initial streak: if both games complete, start at 1; else 0.
+          await setDoc(dailyStreakDocRef, { dailyStreak: dailyGamesComplete ? 1 : 0, lastUpdated: todayISO });
+          setDailyStreak(dailyGamesComplete ? 1 : 0);
+        } else {
+          const data = docSnap.data();
+          // If the daily streak hasn't been updated today and both games are complete, increment the streak.
+          if (data.lastUpdated !== todayISO && dailyGamesComplete) {
+            const newStreak = (data.dailyStreak || 0) + 1;
+            await updateDoc(dailyStreakDocRef, { dailyStreak: newStreak, lastUpdated: todayISO });
+            setDailyStreak(newStreak);
+          } else {
+            // Otherwise, simply set the local value.
+            setDailyStreak(data.dailyStreak || 0);
+          }
+        }
+      } catch (error) {
+        console.error("Error updating daily streak:", error);
+      }
+    }
+    // Compute if both daily games are complete.
+    const dailyGamesComplete = game1Completed && game2Completed;
+    updateDailyStreak();
+  }, [currentUid, game1Completed, game2Completed, todayISO]);
+
+  // *********************************************************************
+  // Check completion for game1
+  // *********************************************************************
   React.useEffect(() => {
     async function checkGame1Completion() {
       try {
@@ -122,7 +183,7 @@ const Desktop: React.FC = () => {
         let completed = false;
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          if (data.date === today) {
+          if (data.date === todayScore) {
             completed = true;
           }
         });
@@ -135,9 +196,11 @@ const Desktop: React.FC = () => {
     if (currentUid) {
       checkGame1Completion();
     }
-  }, [game1.id, currentUid, today]);
+  }, [game1.id, currentUid, todayScore]);
 
-  // --- Check completion for game2 ---
+  // *********************************************************************
+  // Check completion for game2
+  // *********************************************************************
   React.useEffect(() => {
     async function checkGame2Completion() {
       try {
@@ -147,7 +210,7 @@ const Desktop: React.FC = () => {
         let completed = false;
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          if (data.date === today) {
+          if (data.date === todayScore) {
             completed = true;
           }
         });
@@ -160,15 +223,20 @@ const Desktop: React.FC = () => {
     if (currentUid) {
       checkGame2Completion();
     }
-  }, [game2.id, currentUid, today]);
+  }, [game2.id, currentUid, todayScore]);
 
-  // Calculate column width.
+  // Determine whether both daily games have been completed.
+  const dailyGamesComplete = game1Completed && game2Completed;
+
+  // *********************************************************************
+  // Compute column width for layout.
+  // *********************************************************************
   const totalHorizontalPadding = 32 + 16;
   const columnWidth = (width - totalHorizontalPadding) / 2;
 
-  //
-  // Video player & animation for game1.
-  //
+  // *********************************************************************
+  // Video player & animations for game1
+  // *********************************************************************
   const player1 = useVideoPlayer(null, (p) => {
     p.loop = true;
     p.muted = true;
@@ -196,9 +264,9 @@ const Desktop: React.FC = () => {
     }
   }, [game1.video, player1, containerScale1]);
 
-  //
-  // Video player & animation for game2.
-  //
+  // *********************************************************************
+  // Video player & animations for game2
+  // *********************************************************************
   const player2 = useVideoPlayer(null, (p) => {
     p.loop = true;
     p.muted = true;
@@ -233,6 +301,9 @@ const Desktop: React.FC = () => {
 
   return (
     <View style={[styles.outerContainer, { backgroundColor: currentTheme.background }]}>
+      {/* Daily Streak Indicator */}
+      <DailyStreakIndicator streak={dailyStreak} complete={dailyGamesComplete} theme={currentTheme} />
+
       <ScrollView contentContainerStyle={styles.outerContentContainer}>
         <View style={styles.gridContainer}>
           {/* Column 1: Daily Game */}
@@ -374,13 +445,24 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: 4,
     paddingHorizontal: 4,
-    minHeight: 0, // Enforce constant height equal to the icon size
   },
   statusText: {
     marginLeft: 4,
     fontSize: 16,
     color: '#fff',
-    lineHeight: 0,    // Force text line height to match icon height
-    alignSelf: 'center' // Keep text vertically centered
+    alignSelf: 'center',
+    lineHeight: 0,
+  },
+  // Daily Streak Indicator container style.
+  streakIndicatorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    justifyContent: 'center',
+  },
+  streakText: {
+    marginLeft: 4,
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });

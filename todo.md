@@ -10,8 +10,6 @@
 
 1. In each game, Indicate their previous highest score and whether this score is a new high score
  1. First, add an event in uploading in each score service which actually uploads to a new database for each user. This is unique for each game and has:
-  1. Daily Streak
-    Add a daily streak where each day if the user does both games on the daily list, their score on the daily streak increases by 1. only for that day
   2. Daily Best score
   3. High score
   4. Total number of plays
@@ -31,6 +29,9 @@
   1. Unique Emoji reactions (similar to facebook)
   2. Comments visible to everyone (a friend's friend should be able to see their comment )
    * explained. Imagine Friendship A-B-C, person A is not friends with person C but B is friends with both. If person B sends activity to his friends, user's A and C should be able to see each other's reaction's as well as messages.
+
+* Fix the onboarding not working on iphone
+
 
 2. Add pictures to make it more engaging
     * for freeplay - This could be a short picture or a video that actually explains how the game works -D (just got reaction + stroop left)

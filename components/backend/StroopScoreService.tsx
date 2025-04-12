@@ -1,10 +1,10 @@
-import { uploadGameScore } from './scoreService';
+import { uploadGameScore } from "./scoreService";
 
 /**
  * Calculate the Stroop test score index using:
  *   S(T, C) where:
- *   - T = average reaction time in ms
- *   - C = number of correct answers
+ *     T = average reaction time in ms
+ *     C = number of correct answers
  */
 function calculateScoreIndex(T: number, C: number): number {
   if (T > 0 && T <= 250) {
@@ -33,12 +33,12 @@ export async function uploadStroopTestScore(
   averageReactionTimeMs: number
 ) {
   const dateObj = new Date(datePlayed);
-  const formattedDate = dateObj.toLocaleDateString('en-US');
-  const formattedTime = dateObj.toLocaleTimeString('en-US', {
+  const formattedDate = dateObj.toLocaleDateString("en-US");
+  const formattedTime = dateObj.toLocaleTimeString("en-US", {
     hour12: false,
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
   });
 
   const scoreIndex = calculateScoreIndex(averageReactionTimeMs, totalScore);
@@ -52,5 +52,6 @@ export async function uploadStroopTestScore(
     timestamp: Date.now(),
   };
 
-  return await uploadGameScore('stroop', data);
+  // This call uploads the raw score and updates the aggregated statistics.
+  return await uploadGameScore("stroop", data);
 }

@@ -15,12 +15,13 @@ import { doc, getDoc, updateDoc, deleteDoc, deleteField } from "firebase/firesto
 import { useThemeContext, useUserContext } from "@/context/UserContext";
 import THEMES from "@/constants/themes";
 import SignUpIn from "@/components/profile/SignUp-In";
-import UserSettings from "@/components/profile/UserSettings"; // Default export.
+import UserSettings from "@/components/profile/UserSettings";
 import BannerChange from "@/components/profile/BannerChange";
 import PictureChange from "@/components/profile/PictureChange";
 import MostPlayedGraph from "@/components/profile/MostPlayedGraph";
 import BestScoreGraph from "@/components/profile/BestScoreGraph";
 import MostConsistentGraph from "@/components/profile/MostConsistentGraph";
+import ViewStats from "@/components/profile/ViewStats"; // New view statistics modal component
 
 export default function Profile() {
   // Access the user and theme data from context.
@@ -38,6 +39,7 @@ export default function Profile() {
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [showBannerChange, setShowBannerChange] = useState(false);
   const [showPictureChange, setShowPictureChange] = useState(false);
+  const [viewStatsVisible, setViewStatsVisible] = useState(false); // NEW: controls statistics modal
 
   // Fetch extra profile data or perform schema corrections.
   async function fetchUserProfileData() {
@@ -96,21 +98,41 @@ export default function Profile() {
     >
       {/* Header Section */}
       <View style={[styles.headerContainer, { height: 200 }]}>
-        <View style={[styles.bannerContainer, { backgroundColor: user.bannerColor }]} />
+        <View
+          style={[
+            styles.bannerContainer,
+            { backgroundColor: user.bannerColor },
+          ]}
+        />
         <View style={styles.profileImageWrapper}>
           {user.photoURL ? (
-            <Image source={{ uri: user.photoURL }} style={styles.profileImage} resizeMode="cover" />
+            <Image
+              source={{ uri: user.photoURL }}
+              style={styles.profileImage}
+              resizeMode="cover"
+            />
           ) : (
-            <View style={[styles.profileImage, { backgroundColor: "#999" }]} />
+            <View
+              style={[styles.profileImage, { backgroundColor: "#999" }]}
+            />
           )}
-          <TouchableOpacity style={styles.pictureIcon} onPress={() => setShowPictureChange(true)}>
+          <TouchableOpacity
+            style={styles.pictureIcon}
+            onPress={() => setShowPictureChange(true)}
+          >
             <Ionicons name="image-outline" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.settingsIconBanner} onPress={() => setSettingsVisible(true)}>
+        <TouchableOpacity
+          style={styles.settingsIconBanner}
+          onPress={() => setSettingsVisible(true)}
+        >
           <Ionicons name="settings-outline" size={28} color="#fff" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.paintbrushIcon} onPress={() => setShowBannerChange(true)}>
+        <TouchableOpacity
+          style={styles.paintbrushIcon}
+          onPress={() => setShowBannerChange(true)}
+        >
           <Ionicons name="color-palette-outline" size={28} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -120,6 +142,16 @@ export default function Profile() {
         <Text style={[styles.text, { color: currentTheme.text }]}>
           {user.username ? `Welcome, ${user.username}!` : `Welcome!`}
         </Text>
+        {/* NEW: Button to open statistics modal */}
+        <TouchableOpacity
+          style={[styles.statsButton, { backgroundColor: currentTheme.button }]}
+          onPress={() => setViewStatsVisible(true)}
+        >
+          <Ionicons name="stats-chart-outline" size={20} color={currentTheme.buttonText} />
+          <Text style={[styles.statsButtonText, { color: currentTheme.buttonText }]}>
+            View Statistics
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Graphs Section */}
@@ -142,12 +174,10 @@ export default function Profile() {
       <View style={{ height: 40 }} />
 
       {/* Modals */}
-      {/* UserSettings now handles all settings logic via direct DB updates and context. */}
       <UserSettings
         visible={settingsVisible}
         onClose={() => setSettingsVisible(false)}
       />
-
       <BannerChange
         visible={showBannerChange}
         initialColor={user.bannerColor}
@@ -157,7 +187,6 @@ export default function Profile() {
           setShowBannerChange(false);
         }}
       />
-
       <PictureChange
         visible={showPictureChange}
         initialPhotoURL={user.photoURL}
@@ -166,6 +195,11 @@ export default function Profile() {
           // Optionally update Firestore or context here.
           setShowPictureChange(false);
         }}
+      />
+      {/* NEW: Statistics modal */}
+      <ViewStats
+        visible={viewStatsVisible}
+        onClose={() => setViewStatsVisible(false)}
       />
     </ScrollView>
   );
@@ -234,6 +268,19 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginVertical: 8,
   },
+  statsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  statsButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
+  },
   graphsSection: {
     marginTop: 20,
   },
@@ -254,3 +301,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 });
+

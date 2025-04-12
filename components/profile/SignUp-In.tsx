@@ -1,10 +1,8 @@
-// /components/profile/SignUp-In.tsx
 import React, { useState, useEffect } from "react";
 import {
   View,
   StyleSheet,
   TextInput,
-  Button,
   Text,
   Alert,
   TouchableOpacity,
@@ -26,9 +24,12 @@ import { useUserContext, useThemeContext, UserProfile, ThemeName } from "@/conte
 import THEMES from "@/constants/themes";
 import adjectives from "@/constants/UsernameGenerator/adjectives";
 import names from "@/constants/UsernameGenerator/names";
+import { Ionicons } from "@expo/vector-icons";
 
 // Regex: Min 8 chars, 1 uppercase, 1 lowercase, 1 number
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/;
+// Simple email regex for validation
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type SignUpInProps = {
   onAuthSuccess: () => void;
@@ -73,6 +74,11 @@ export default function SignUpIn({ onAuthSuccess }: SignUpInProps) {
     return passwordRegex.test(pw);
   }
 
+  // Validate email format
+  function isValidEmail(email: string) {
+    return emailRegex.test(email);
+  }
+
   // Generate a random username (for new sign-ups)
   function generateRandomUsername() {
     const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
@@ -96,6 +102,10 @@ export default function SignUpIn({ onAuthSuccess }: SignUpInProps) {
         "Weak Password",
         "Password must be at least 8 characters, with 1 uppercase, 1 lowercase, and 1 number."
       );
+      return;
+    }
+    if (isSignUp && !isValidEmail(email.trim())) {
+      Alert.alert("Input Error", "Please provide a valid email address.");
       return;
     }
 
@@ -122,10 +132,6 @@ export default function SignUpIn({ onAuthSuccess }: SignUpInProps) {
         };
         await setDoc(doc(db, "profile", uid), profileData);
         setUser({ uid, ...profileData });
-        Alert.alert(
-          "Success",
-          `Account created successfully!\nYour temporary username is "${randomUsername}".`
-        );
         onAuthSuccess();
       } else {
         // Login flow
@@ -174,7 +180,22 @@ export default function SignUpIn({ onAuthSuccess }: SignUpInProps) {
         keyboardType="email-address"
         autoCapitalize="none"
       />
-      {/* Password field container (animated) */}
+
+      {/* Email Validation Checklist for Sign Up */}
+      {isSignUp && (
+        <View style={styles.checklistContainer}>
+          <View style={styles.checklistItem}>
+            {isValidEmail(email.trim()) ? (
+              <Ionicons name="checkmark-circle-outline" size={16} color="green" />
+            ) : (
+              <Ionicons name="close-circle-outline" size={16} color="red" />
+            )}
+            <Text style={styles.checklistText}> Valid Email Address</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Password Field Container (animated) */}
       <Animated.View style={[styles.passwordContainer, passAnimatedStyle]}>
         {!isForgotPassword && (
           <TextInput
@@ -188,27 +209,58 @@ export default function SignUpIn({ onAuthSuccess }: SignUpInProps) {
         )}
       </Animated.View>
 
-      {/* Auth Button (Sign Up, Log In, or Reset Password) */}
-      <View style={styles.buttonContainer}>
-        <Button
-          title={
-            isForgotPassword
-              ? "RESET PASSWORD"
-              : isSignUp
-              ? "Sign Up"
-              : "Log In"
-          }
-          onPress={handleAuthAction}
-          color={currentTheme.primary}
-        />
-      </View>
+      {/* Password Requirements Checklist for Sign Up */}
+      {isSignUp && (
+        <View style={styles.checklistContainer}>
+          <View style={styles.checklistItem}>
+            {password.length >= 8 ? (
+              <Ionicons name="checkmark-circle-outline" size={16} color="green" />
+            ) : (
+              <Ionicons name="close-circle-outline" size={16} color="red" />
+            )}
+            <Text style={styles.checklistText}> At least 8 characters</Text>
+          </View>
+          <View style={styles.checklistItem}>
+            {/[A-Z]/.test(password) ? (
+              <Ionicons name="checkmark-circle-outline" size={16} color="green" />
+            ) : (
+              <Ionicons name="close-circle-outline" size={16} color="red" />
+            )}
+            <Text style={styles.checklistText}> At least one uppercase letter</Text>
+          </View>
+          <View style={styles.checklistItem}>
+            {/[a-z]/.test(password) ? (
+              <Ionicons name="checkmark-circle-outline" size={16} color="green" />
+            ) : (
+              <Ionicons name="close-circle-outline" size={16} color="red" />
+            )}
+            <Text style={styles.checklistText}> At least one lowercase letter</Text>
+          </View>
+          <View style={styles.checklistItem}>
+            {/\d/.test(password) ? (
+              <Ionicons name="checkmark-circle-outline" size={16} color="green" />
+            ) : (
+              <Ionicons name="close-circle-outline" size={16} color="red" />
+            )}
+            <Text style={styles.checklistText}> At least one number</Text>
+          </View>
+        </View>
+      )}
+
+      {/* Custom Sign In / Sign Up / Reset Password Button */}
+      <TouchableOpacity
+        style={[styles.button, { backgroundColor: currentTheme.primary }]}
+        onPress={handleAuthAction}
+      >
+        <Text style={[styles.buttonText, { color: currentTheme.text }]}>
+          {isForgotPassword ? "RESET PASSWORD" : isSignUp ? "Sign Up" : "Log In"}
+        </Text>
+      </TouchableOpacity>
 
       {/* Toggle between login & sign-up */}
       <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
         <Text style={[styles.toggleText, { color: currentTheme.text }]}>
-          {isSignUp
-            ? "Already have an account? Log in"
-            : "Don't have an account? Sign up"}
+          {isSignUp ? "Already have an account? Log in" : "Don't have an account? Sign up"}
         </Text>
       </TouchableOpacity>
 
@@ -238,8 +290,28 @@ const styles = StyleSheet.create({
     marginVertical: 6,
     paddingHorizontal: 8,
   },
-  buttonContainer: {
+  checklistContainer: {
+    marginVertical: 4,
+    paddingHorizontal: 8,
+  },
+  checklistItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 2,
+  },
+  checklistText: {
+    fontSize: 12,
+    color: "#666",
+    marginLeft: 4,
+  },
+  button: {
     marginVertical: 10,
+    paddingVertical: 12,
+    borderRadius: 5,
+    alignItems: "center",
+  },
+  buttonText: {
+    fontSize: 16,
   },
   toggleText: {
     marginTop: 10,
