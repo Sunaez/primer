@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Animated } from 'react-native';
 import { useThemeContext } from '@/context/UserContext';
 import THEMES from '@/constants/themes';
 import ReturnFreeplayButton from '@/components/ReturnFreeplayButton';
 import { uploadStroopTestScore } from '@/components/backend/StroopScoreService';
+import { notLoggedInComments } from '@/constants/NotLoggedInComments';
 
 interface StroopColor {
   name: string;
@@ -31,6 +32,9 @@ export default function Stroop() {
   const { themeName } = useThemeContext();
   const theme = THEMES[themeName] || THEMES.Dark;
 
+  // Dummy flag for logged in status – replace with your auth check.
+  const isLoggedIn = false;
+
   const [stage, setStage] = useState<Stage>('ready');
   const [trialIndex, setTrialIndex] = useState(0);
   const [word, setWord] = useState<StroopColor | null>(null);
@@ -42,6 +46,19 @@ export default function Stroop() {
   const [startTime, setStartTime] = useState<number>(0);
   const [datePlayed, setDatePlayed] = useState('');
   const [hasUploaded, setHasUploaded] = useState(false);
+  const [loginComment, setLoginComment] = useState('');
+
+  // Animated value refs.
+  const scoreAnim = useRef(new Animated.Value(0)).current;
+  const totalTimeAnim = useRef(new Animated.Value(0)).current;
+  const avgTimeAnim = useRef(new Animated.Value(0)).current;
+  const scoreIndexAnim = useRef(new Animated.Value(0)).current;
+
+  // Local state for displaying animated numbers.
+  const [animatedScore, setAnimatedScore] = useState(0);
+  const [animatedTotalTime, setAnimatedTotalTime] = useState(0);
+  const [animatedAvgTime, setAnimatedAvgTime] = useState(0);
+  const [animatedScoreIndex, setAnimatedScoreIndex] = useState(0);
 
   // Start the first trial when the game begins.
   useEffect(() => {
@@ -51,14 +68,60 @@ export default function Stroop() {
     }
   }, [stage, trialIndex]);
 
-  // Upload score when game is over.
+  // When the game is over, animate the numbers.
   useEffect(() => {
-    if (stage === 'results' && !hasUploaded) {
-      uploadScore();
+    if (stage === 'results') {
+      // If the user isn’t logged in, pick a random comment.
+      if (!isLoggedIn) {
+        setLoginComment(notLoggedInComments[Math.floor(Math.random() * notLoggedInComments.length)]);
+      }
+      const totalTime = results.reduce((sum, r) => sum + r.time, 0);
+      const avgTime = totalTime / TOTAL_TRIALS;
+      const scoreIndexValue = calculateScoreIndex(avgTime * 1000, score);
+
+      // Reset animated values to zero.
+      scoreAnim.setValue(0);
+      totalTimeAnim.setValue(0);
+      avgTimeAnim.setValue(0);
+      scoreIndexAnim.setValue(0);
+
+      const scoreListener = scoreAnim.addListener(({ value }) => setAnimatedScore(value));
+      const totalTimeListener = totalTimeAnim.addListener(({ value }) => setAnimatedTotalTime(value));
+      const avgTimeListener = avgTimeAnim.addListener(({ value }) => setAnimatedAvgTime(value));
+      const scoreIndexListener = scoreIndexAnim.addListener(({ value }) => setAnimatedScoreIndex(value));
+
+      Animated.parallel([
+        Animated.timing(scoreAnim, { toValue: score, duration: 1000, useNativeDriver: false }),
+        Animated.timing(totalTimeAnim, { toValue: totalTime, duration: 1000, useNativeDriver: false }),
+        Animated.timing(avgTimeAnim, { toValue: avgTime, duration: 1000, useNativeDriver: false }),
+        Animated.timing(scoreIndexAnim, { toValue: scoreIndexValue, duration: 1000, useNativeDriver: false }),
+      ]).start();
+
+      // If logged in, try to upload the score.
+      if (isLoggedIn) {
+        uploadScore();
+      }
+
+      return () => {
+        scoreAnim.removeListener(scoreListener);
+        totalTimeAnim.removeListener(totalTimeListener);
+        avgTimeAnim.removeListener(avgTimeListener);
+        scoreIndexAnim.removeListener(scoreIndexListener);
+      };
     }
-  }, [stage, results, hasUploaded]);
+  }, [stage]);
 
   const startGame = () => {
+    // Reset any animated numbers to 0.
+    scoreAnim.setValue(0);
+    totalTimeAnim.setValue(0);
+    avgTimeAnim.setValue(0);
+    scoreIndexAnim.setValue(0);
+    setAnimatedScore(0);
+    setAnimatedTotalTime(0);
+    setAnimatedAvgTime(0);
+    setAnimatedScoreIndex(0);
+
     setScore(0);
     setResults([]);
     setTrialIndex(0);
@@ -129,7 +192,7 @@ export default function Stroop() {
         onPress={startGame}
         accessibilityLabel="Start Game"
       >
-        <Text style={[styles.startButtonText, { fontFamily: 'Parkisans' }]}>Start Game</Text>
+        <Text style={[styles.startButtonText, { fontFamily: 'Parkinsans' }]}>Start Game</Text>
       </TouchableOpacity>
     </View>
   );
@@ -149,7 +212,7 @@ export default function Stroop() {
             accessibilityLabel={`Select ${color.name}`}
             style={[styles.colorButton, { backgroundColor: color.value }]}
           >
-            <Text style={[styles.buttonLabel, { fontFamily: 'Parkisans' }]}>{color.name}</Text>
+            <Text style={[styles.buttonLabel, { fontFamily: 'Parkinsans' }]}>{color.name}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -157,30 +220,31 @@ export default function Stroop() {
   );
 
   const renderResults = () => {
-    const totalTime = results.reduce((sum, r) => sum + r.time, 0);
-    const avgTime = totalTime / TOTAL_TRIALS;
-    const scoreIndex = calculateScoreIndex(avgTime * 1000, score);
-
     return (
       <View style={styles.centered}>
-        <Text style={[styles.resultText, { fontFamily: 'Parkisans' }]}>
-          Correct: {score} / {TOTAL_TRIALS}
+        <Text style={[styles.resultText, { fontFamily: 'Parkinsans', color: theme.text }]}>
+          Correct: {Math.floor(animatedScore)} / {TOTAL_TRIALS}
         </Text>
-        <Text style={[styles.resultText, { fontFamily: 'Parkisans' }]}>
-          Total Time: {formatSeconds(totalTime)}
+        <Text style={[styles.resultText, { fontFamily: 'Parkinsans', color: theme.text }]}>
+          Total Time: {formatSeconds(animatedTotalTime)}
         </Text>
-        <Text style={[styles.resultText, { fontFamily: 'Parkisans' }]}>
-          Avg Time/Turn: {formatSeconds(avgTime)}
+        <Text style={[styles.resultText, { fontFamily: 'Parkinsans', color: theme.text }]}>
+          Avg Time/Turn: {formatSeconds(animatedAvgTime)}
         </Text>
-        <Text style={[styles.resultText, { fontFamily: 'Parkisans' }]}>
-          Score Index: {scoreIndex.toFixed(2)}
+        <Text style={[styles.resultText, { fontFamily: 'Parkinsans', color: theme.text }]}>
+          Score Index: {animatedScoreIndex.toFixed(2)}
         </Text>
+        {!isLoggedIn && (
+          <Text style={[styles.loginComment, { fontFamily: 'Parkinsans', color: theme.text }]}>
+            {loginComment}
+          </Text>
+        )}
         <TouchableOpacity
           style={[styles.startButton, { backgroundColor: theme.button }]}
           onPress={startGame}
           accessibilityLabel="Play Again"
         >
-          <Text style={[styles.startButtonText, { fontFamily: 'Parkisans' }]}>Play Again</Text>
+          <Text style={[styles.startButtonText, { fontFamily: 'Parkinsans' }]}>Play Again</Text>
         </TouchableOpacity>
         <ReturnFreeplayButton />
       </View>
@@ -262,5 +326,11 @@ const styles = StyleSheet.create({
   resultText: {
     fontSize: 20,
     marginBottom: 10,
+  },
+  loginComment: {
+    fontSize: 18,
+    marginBottom: 10,
+    textAlign: 'center',
+    marginVertical: 10,
   },
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useThemeContext } from '@/context/UserContext';
 import THEMES from '@/constants/themes';
@@ -9,27 +9,39 @@ export default function ReturnFreeplayButton() {
   const { themeName } = useThemeContext();
   const theme = THEMES[themeName] || THEMES.Dark;
 
+  function handlePress() {
+    router.replace('/(tabs)/freeplay');
+  }
+
   return (
-    <TouchableOpacity
-      style={[styles.button, { backgroundColor: theme.button }]}
-      onPress={() => router.replace('/(tabs)/freeplay')}
-    >
-      <Text style={[styles.buttonText, { color: theme.buttonText, fontFamily: 'Parkisans' }]}>
-        Return to Freeplay
-      </Text>
-    </TouchableOpacity>
+    <View style={styles.container}>
+      <TouchableOpacity
+        style={[styles.button, { backgroundColor: theme.button }]}
+        onPress={handlePress}
+      >
+        <Text
+          style={[
+            styles.buttonText,
+            { color: theme.text, fontFamily: 'Parkinsans', },
+          ]}
+        >
+          Return to Freeplay
+        </Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center', // center children horizontally
+  },
   button: {
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 10,
-    marginTop: 20,
+    padding: 14,
+    borderRadius: 8,
+    marginHorizontal: 8,
   },
   buttonText: {
-    fontSize: 20,
-    textAlign: 'center',
+    fontSize: 18,
   },
 });

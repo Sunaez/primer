@@ -6,15 +6,37 @@
 
 ## Immediate tasks
 ### Code Related
-1. add a way of explaining why this actually is useful (maybe a question mark with the games description and video which references the report, explaining why its a good game to play consistently)
+
+
+1. In each game, Indicate their previous highest score and whether this score is a new high score
+ 1. First, add an event in uploading in each score service which actually uploads to a new database for each user. This is unique for each game and has:
+  1. Daily Streak
+    Add a daily streak where each day if the user does both games on the daily list, their score on the daily streak increases by 1. only for that day
+  2. Daily Best score
+  3. High score
+  4. Total number of plays
+  5. By doing this, we can add some checks:
+  1. If a user beats their previous high score then send an activity - to: All friends
+   * example: " {Username} beat their score in {Game name} from {Previous High Score} to {High Score}"
+  2. If a user beats their friend's daily score with their own daily score - to: Friend who's score got beaten 
+   * example: " {Friend's Username} just beat your score on {Game name} by {Points difference}, you gonna let that slide?"
+  3. If a friend's daily score surpasses a user's high score - to: User
+   * example: "Someone's having a good day! {Friend's username} Just beat your highscore on {Game name}! "
+  4. If a user's daily score surpasses a friend's high score - to: Friend
+   * example: "Someone's having a good day! {username} Just beat your highscore on {Game name}! "
+  5. If a user hits a multiple of 25 in total number of plays - to: All friends
+   * example: " {username} just got {Number of plays} plays !"
+ 3. Next, when we receive a friend request we should send an activity alert to the user, allowing them to accept or reject it from the alerts.
+ 4. For each activity (excluding friend requests) Allow for:
+  1. Unique Emoji reactions (similar to facebook)
+  2. Comments visible to everyone (a friend's friend should be able to see their comment )
+   * explained. Imagine Friendship A-B-C, person A is not friends with person C but B is friends with both. If person B sends activity to his friends, user's A and C should be able to see each other's reaction's as well as messages.
+
 2. Add pictures to make it more engaging
     * for freeplay - This could be a short picture or a video that actually explains how the game works -D (just got reaction + stroop left)
-3. In each game, Indicate their previous highest score and whether this score is a new high score
-4. Also consider Daily streak implementation - Where do we begin?
-5. Start planning how to add the activities feature now that we have blaze set up
+
 ### Report Related
 * justify defaulting dark mode in report
-* Make a graph for each of the equations that are used, all of them.
 
 
 ## Front End

@@ -1,4 +1,5 @@
-// /app/(tabs)/freeplay.tsx
+// app/(tabs)/freeplay.tsx
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -7,8 +8,10 @@ import {
   ScrollView,
   Pressable,
   useWindowDimensions,
+  Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -23,33 +26,67 @@ import { useThemeContext } from '@/context/UserContext';
 import THEMES from '@/constants/themes';
 import { Game, GAMES } from '@/constants/games';
 
+// Import all info components from the /components/info folder.
+import * as InfoModules from '@/components/info';
+
+/**
+ * InfoIconWithTooltip
+ * This component uses the Ionicons "information-circle-outline".
+ * On hover (web) it expands to reveal the text "Benefits".
+ */
+const InfoIconWithTooltip: React.FC<{ theme: any; onPress: () => void }> = ({ theme, onPress }) => {
+  const [hovered, setHovered] = useState(false);
+  // Shared value for container width: starts just wide enough for the icon.
+  const containerWidth = useSharedValue(40);
+  useEffect(() => {
+    containerWidth.value = withTiming(hovered ? 140 : 40, { duration: 300 });
+  }, [hovered]);
+  const animatedContainerStyle = useAnimatedStyle(() => ({
+    width: containerWidth.value,
+  }));
+  const backgroundColor = theme.focus || '#3498db';
+
+  return (
+    <Pressable
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      onPress={onPress}
+    >
+      <Animated.View style={[styles.infoIconWrapper, animatedContainerStyle, { backgroundColor }]}>
+        <Ionicons name="information-circle-outline" size={32} color="#fff" />
+        {hovered && <Text style={styles.infoTooltipText}> Benefits</Text>}
+      </Animated.View>
+    </Pressable>
+  );
+};
+
 export default function Freeplay() {
   const router = useRouter();
   const { themeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
   const { width } = useWindowDimensions();
 
-  // State for the currently selected game index.
+  // State management
   const [selectedIndex, setSelectedIndex] = useState(0);
-  // State to track whether the video is paused.
   const [isVideoPaused, setIsVideoPaused] = useState(false);
+  const [infoModalVisible, setInfoModalVisible] = useState(false);
+  const [selectedGameForInfo, setSelectedGameForInfo] = useState<Game | null>(null);
 
-  // --- Reanimated Shared Values for animations ---
+  // Reanimated shared values for animations.
   const instructionsX = useSharedValue(0);
   const instructionsOpacity = useSharedValue(1);
-  // For each game, create shared values for the square scale, border, and tap text opacity.
   const scaleAndOpacity = GAMES.map(() => useSharedValue(0));
   const borderAnims = GAMES.map(() => useSharedValue(0));
   const tapTextAnims = GAMES.map(() => useSharedValue(0));
 
-  // Create a single VideoPlayer instance for the entire screen.
+  // Create a single VideoPlayer instance.
   const player = useVideoPlayer(null, (p) => {
     p.loop = true;
-    p.muted = true; // Muted by default.
+    p.muted = true;
   });
   const currentVideoUri = React.useRef<string | null>(null);
 
-  // Whenever the selected game changes, update the video source (if any)
+  // Update video source when the selected game changes.
   useEffect(() => {
     const game = GAMES[selectedIndex];
     if (game.video) {
@@ -57,8 +94,7 @@ export default function Freeplay() {
       if (typeof game.video === 'string') {
         finalUri = game.video;
       } else if (typeof game.video === 'number') {
-        const asset = Asset.fromModule(game.video);
-        finalUri = asset.uri;
+        finalUri = Asset.fromModule(game.video).uri;
       } else if (typeof game.video === 'object' && 'uri' in game.video) {
         finalUri = game.video.uri;
       }
@@ -71,73 +107,38 @@ export default function Freeplay() {
     }
   }, [selectedIndex]);
 
-  // On mount, animate the selected game square.
+  // Animate the selected game square on mount.
   useEffect(() => {
     animateSelected(selectedIndex);
   }, []);
 
-  // Animate the selected square’s values to 1 using ease in-out.
   function animateSelected(index: number) {
-    scaleAndOpacity[index].value = withTiming(1, {
-      duration: 200,
-      easing: Easing.inOut(Easing.ease),
-    });
-    borderAnims[index].value = withTiming(1, {
-      duration: 200,
-      easing: Easing.inOut(Easing.ease),
-    });
-    tapTextAnims[index].value = withTiming(1, {
-      duration: 150,
-      easing: Easing.inOut(Easing.ease),
-    });
+    scaleAndOpacity[index].value = withTiming(1, { duration: 200, easing: Easing.inOut(Easing.ease) });
+    borderAnims[index].value = withTiming(1, { duration: 200, easing: Easing.inOut(Easing.ease) });
+    tapTextAnims[index].value = withTiming(1, { duration: 150, easing: Easing.inOut(Easing.ease) });
   }
 
-  // Called when a user selects a game square.
+  // Called when a game square is pressed.
   function selectGame(newIndex: number) {
     if (newIndex === selectedIndex) {
       handlePlay();
       return;
     }
-
-    // Animate deselection of the current square.
-    scaleAndOpacity[selectedIndex].value = withTiming(0, {
-      duration: 200,
-      easing: Easing.inOut(Easing.ease),
-    });
-    borderAnims[selectedIndex].value = withTiming(0, {
-      duration: 200,
-      easing: Easing.inOut(Easing.ease),
-    });
-    tapTextAnims[selectedIndex].value = withTiming(0, {
-      duration: 150,
-      easing: Easing.inOut(Easing.ease),
-    });
-
-    // Determine slide direction.
+    scaleAndOpacity[selectedIndex].value = withTiming(0, { duration: 200, easing: Easing.inOut(Easing.ease) });
+    borderAnims[selectedIndex].value = withTiming(0, { duration: 200, easing: Easing.inOut(Easing.ease) });
+    tapTextAnims[selectedIndex].value = withTiming(0, { duration: 150, easing: Easing.inOut(Easing.ease) });
     const dir = newIndex > selectedIndex ? -300 : 300;
-    // Animate instructions sliding out.
-    instructionsX.value = withTiming(
-      dir,
-      { duration: 200, easing: Easing.inOut(Easing.ease) },
-      (finished) => {
-        if (finished) {
-          runOnJS(handleInstructionsReset)(newIndex, dir);
-        }
-      }
-    );
-    instructionsOpacity.value = withTiming(0, {
-      duration: 150,
-      easing: Easing.inOut(Easing.ease),
+    instructionsX.value = withTiming(dir, { duration: 200, easing: Easing.inOut(Easing.ease) }, (finished) => {
+      if (finished) runOnJS(handleInstructionsReset)(newIndex, dir);
     });
+    instructionsOpacity.value = withTiming(0, { duration: 150, easing: Easing.inOut(Easing.ease) });
   }
 
-  // Callback run on the JS thread once the slide-out animation completes.
   function handleInstructionsReset(newIndex: number, dir: number) {
     setSelectedIndex(newIndex);
     instructionsX.value = -dir;
     instructionsOpacity.value = 0;
     animateSelected(newIndex);
-    // Slide instructions back in.
     instructionsX.value = withTiming(0, { duration: 300, easing: Easing.inOut(Easing.ease) });
     instructionsOpacity.value = withTiming(1, { duration: 250, easing: Easing.inOut(Easing.ease) });
   }
@@ -146,7 +147,6 @@ export default function Freeplay() {
     router.push(`/games/${GAMES[selectedIndex].id}`);
   }
 
-  // Toggle play/pause state when the video is tapped.
   function handleVideoPress() {
     if (isVideoPaused) {
       player.play();
@@ -157,7 +157,35 @@ export default function Freeplay() {
     }
   }
 
-  // --- Animated component for each game square ---
+  // Info Modal functions.
+  function openInfoModal(index: number) {
+    setSelectedGameForInfo(GAMES[index]);
+    setInfoModalVisible(true);
+  }
+
+  function closeInfoModal() {
+    setInfoModalVisible(false);
+    setSelectedGameForInfo(null);
+  }
+
+  /**
+   * Renders the info component by checking for a component in the InfoModules
+   * object that matches the selected game id. If not found, it displays a fallback.
+   */
+  function renderInfoContent() {
+    if (!selectedGameForInfo) return null;
+    // Look up the info component based on the current game id.
+    const InfoComponent = (InfoModules as any)[selectedGameForInfo.id];
+    return InfoComponent ? (
+      <InfoComponent />
+    ) : (
+      <Text style={{ color: currentTheme.text }}>No file found</Text>
+    );
+  }
+
+  // ----------------------------------------------------
+  // Game Square Item Component
+  // ----------------------------------------------------
   function GameSquareItem({
     game,
     index,
@@ -169,15 +197,14 @@ export default function Freeplay() {
     isSelected: boolean;
     onPress: (index: number) => void;
   }) {
-    // Animated style for the square container.
     const animatedSquareStyle = useAnimatedStyle(() => ({
       transform: [{ scale: 0.95 + 0.05 * scaleAndOpacity[index].value }],
       borderWidth: borderAnims[index].value * 3,
     }));
-    // Animated style for the tap text.
     const animatedTextStyle = useAnimatedStyle(() => ({
       opacity: tapTextAnims[index].value,
     }));
+
     return (
       <Pressable onPress={() => onPress(index)}>
         <Animated.View
@@ -200,54 +227,18 @@ export default function Freeplay() {
     );
   }
 
-  // Render the list of game squares.
   function renderGameList() {
     return (
       <View style={styles.squaresSection}>
         <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={styles.scrollContent}>
           {GAMES.map((game, i) => (
-            <GameSquareItem
-              key={game.id}
-              game={game}
-              index={i}
-              isSelected={i === selectedIndex}
-              onPress={selectGame}
-            />
+            <GameSquareItem key={game.id} game={game} index={i} isSelected={i === selectedIndex} onPress={selectGame} />
           ))}
         </ScrollView>
       </View>
     );
   }
 
-  // Render the instructions and video for the selected game.
-  function renderInstructions() {
-    const game = GAMES[selectedIndex];
-    const animatedInstructionsStyle = useAnimatedStyle(() => ({
-      transform: [{ translateX: instructionsX.value }],
-      opacity: instructionsOpacity.value,
-    }));
-    return (
-      <Animated.View
-        style={[
-          styles.instructionsContainer,
-          { backgroundColor: currentTheme.surface },
-          animatedInstructionsStyle,
-        ]}
-      >
-        <Text style={[styles.instructionsTitle, { color: currentTheme.text }]}>
-          {game.title} Instructions
-        </Text>
-        {game.instructions.map((step, idx) => (
-          <Text key={idx} style={[styles.instructionText, { color: currentTheme.text }]}>
-            {idx + 1}. {step}
-          </Text>
-        ))}
-        {renderVideo()}
-      </Animated.View>
-    );
-  }
-
-  // Render the video view.
   function renderVideo() {
     const game = GAMES[selectedIndex];
     if (!game.video) {
@@ -263,9 +254,7 @@ export default function Freeplay() {
           <VideoView style={styles.video} player={player} />
           {isVideoPaused && (
             <View style={styles.overlay}>
-              <Text style={[styles.overlayText, { color: currentTheme.text }]}>
-                Tap to play video
-              </Text>
+              <Text style={[styles.overlayText, { color: currentTheme.text }]}>Tap to play video</Text>
             </View>
           )}
         </Pressable>
@@ -273,16 +262,61 @@ export default function Freeplay() {
     );
   }
 
+  function renderInstructions() {
+    const game = GAMES[selectedIndex];
+    const animatedInstructionsStyle = useAnimatedStyle(() => ({
+      transform: [{ translateX: instructionsX.value }],
+      opacity: instructionsOpacity.value,
+    }));
+    return (
+      <Animated.View
+        style={[
+          styles.instructionsContainer,
+          { backgroundColor: currentTheme.surface },
+          animatedInstructionsStyle,
+        ]}
+      >
+        <Text style={[styles.instructionsTitle, { color: currentTheme.text }]}>{game.title} Instructions</Text>
+        {game.instructions.map((step, idx) => (
+          <Text key={idx} style={[styles.instructionText, { color: currentTheme.text }]}>
+            {idx + 1}. {step}
+          </Text>
+        ))}
+        {renderVideo()}
+        {/* Info icon placed below the video */}
+        <View style={styles.infoIconArea}>
+          <InfoIconWithTooltip theme={currentTheme} onPress={() => openInfoModal(selectedIndex)} />
+        </View>
+      </Animated.View>
+    );
+  }
+
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: currentTheme.background }]}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator
-    >
-      <Text style={[styles.title, { color: currentTheme.text }]}>Freeplay Games</Text>
-      {renderGameList()}
-      {renderInstructions()}
-    </ScrollView>
+    <>
+      <ScrollView
+        style={[styles.container, { backgroundColor: currentTheme.background }]}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator
+      >
+        <Text style={[styles.title, { color: currentTheme.text }]}>Freeplay Games</Text>
+        {renderGameList()}
+        {renderInstructions()}
+      </ScrollView>
+
+      {/* Info Modal */}
+      {infoModalVisible && (
+        <Modal visible={infoModalVisible} animationType="slide" transparent onRequestClose={closeInfoModal}>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContainer, { backgroundColor: currentTheme.surface }]}>
+              <ScrollView style={styles.modalContent}>{renderInfoContent()}</ScrollView>
+              <Pressable onPress={closeInfoModal} style={styles.modalCloseButton}>
+                <Text style={[styles.modalCloseText, { color: currentTheme.text }]}>Close</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+      )}
+    </>
   );
 }
 
@@ -381,5 +415,48 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 4,
+  },
+  infoIconArea: {
+    marginTop: 12,
+    alignSelf: 'center',
+  },
+  infoIconWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+  },
+  infoTooltipText: {
+    marginLeft: 4,
+    fontSize: 16,
+    color: '#fff',
+    lineHeight: 0,
+    alignSelf: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    width: '100%',
+    maxWidth: 600,
+    borderRadius: 12,
+    padding: 20,
+  },
+  modalContent: {
+    maxHeight: 300,
+    marginBottom: 20,
+  },
+  modalCloseButton: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  modalCloseText: {
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

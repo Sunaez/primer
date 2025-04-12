@@ -215,7 +215,7 @@ export default function SignUpIn({ onAuthSuccess }: SignUpInProps) {
       {/* Toggle forgot password */}
       <TouchableOpacity onPress={toggleForgotPassword}>
         <Text style={[styles.toggleText, { color: currentTheme.text }]}>
-          {isForgotPassword ? "Cancel forgot password" : "Forgot password?"}
+          {isForgotPassword ? "I remember my password" : "I forgot my password"}
         </Text>
       </TouchableOpacity>
     </View>
