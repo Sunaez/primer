@@ -1,6 +1,14 @@
 // /components/profile/BannerChange.tsx
 import React, { useState, useEffect } from "react";
-import { Modal, View, StyleSheet, Text, TouchableOpacity, TextInput } from "react-native";
+import {
+  Modal,
+  View,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  TextInput,
+  Platform,
+} from "react-native";
 import ReanimatedColorPicker, { Panel1, HueSlider } from "reanimated-color-picker";
 import { auth, db } from "@/components/firebaseConfig";
 import { doc, updateDoc } from "firebase/firestore";
@@ -53,7 +61,12 @@ export default function BannerChange({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal
+      visible={visible}
+      // For iOS, use "fade" when the modal is transparent to avoid crashes.
+      animationType={Platform.OS === "ios" ? "fade" : "slide"}
+      transparent
+    >
       <View style={styles.overlay}>
         <View style={[styles.modalContainer, { backgroundColor: currentTheme.background }]}>
           <Text style={[styles.title, { color: currentTheme.text }]}>
