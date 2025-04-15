@@ -4,10 +4,10 @@ import {
   Modal,
   View,
   StyleSheet,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
+  Pressable,
   Text,
   Image,
+  ScrollView,
   useWindowDimensions,
 } from 'react-native';
 import Swiper from 'react-native-swiper';
@@ -30,27 +30,26 @@ type SlideData = {
 };
 
 export default function OnboardingModal({ visible, onClose }: OnboardingModalProps) {
-  // Use the user context to find the theme. Default to 'Dark' if none is found.
   const { themeName } = useThemeContext() || { themeName: 'Dark' };
   const currentTheme = THEMES[themeName] || THEMES.Dark;
 
-  // We define the slides AFTER we have currentTheme.
+  // Slide Data
   const slides: SlideData[] = [
     {
       title: 'Welcome to Primer',
       bulletPoints: [
-        'Welcome to primer, the daily brain training game focused on keeping you away from brain rot (no 🧢).',
-        "With all the screen time you spend, ain't no way your brain isn't cooked.",
-        'Primer is best used a little each day! A little each day is always better than a lot in one go.',
+        'Welcome to Primer, the daily brain training game to keep you sharp.',
+        "Don't let too much screen time fry your brain.",
+        'Small daily sessions are the key!',
       ],
       image: require('assets/images/logo.png'),
     },
     {
       title: 'Daily Challenges',
       bulletPoints: [
-        'Each day you get two games which must be completed for the day to count as completed.',
-        'Your scores are saved and you can track which activities you completed.',
-        'Try not to get tired of winning! (I know some people are 💀).',
+        'Complete two games every day to mark your progress.',
+        'Your scores are tracked automatically.',
+        'Keep your momentum going!',
       ],
       iconName: 'home-sharp',
       iconColor: currentTheme.daily,
@@ -58,9 +57,9 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
     {
       title: 'Freeplay Games',
       bulletPoints: [
-        'Choose literally any game to play as much as you like.',
-        'Refine your score for that day and try your best to beat your scores.',
-        'Each game has an explanation of how to play and a short video.',
+        'Play any game to your heart’s content.',
+        'Try to beat your best scores.',
+        'Learn with quick videos and instructions.',
       ],
       iconName: 'game-controller',
       iconColor: currentTheme.freeplay,
@@ -68,9 +67,8 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
     {
       title: 'Social Connections',
       bulletPoints: [
-        'Life is better with friends (bro is not the quiet kid at the back).',
-        'After completing tasks you get to compete against your friends.',
-        'Get alerted when your friends beat your score.',
+        'Connect with friends and challenge them.',
+        'Receive alerts when your friends beat your scores.',
       ],
       iconName: 'chatbubbles',
       iconColor: currentTheme.social,
@@ -78,9 +76,8 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
     {
       title: 'Friends',
       bulletPoints: [
-        '"Wait a second, I don’t have any friends yet" – that’s why this is here!',
-        'Search and add friends to compete against them.',
-        'Block anyone you feel is moving a bit sus.',
+        'Build your social circle – add and compete with friends.',
+        'Block users who aren’t a good fit.',
       ],
       iconName: 'people-circle',
       iconColor: currentTheme.friends,
@@ -88,9 +85,8 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
     {
       title: 'Profile',
       bulletPoints: [
-        'Your app is you, so why can’t you customize it like your own?',
-        'Pick from loads of different themes so you can choose what you like.',
-        '(And if not, we can arrange more!)',
+        'Customize your profile with your favorite themes.',
+        'Express yourself with various theme options.',
       ],
       iconName: 'person',
       iconColor: currentTheme.text,
@@ -98,29 +94,30 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
     {
       title: "That's it",
       bulletPoints: [
-        'Okay, enough yapping. Make an account for all the features and get playing.',
-        'You can be a guest, but it’s not as cool as having an account.',
-        '(No really, make an account – it’s just way better.)',
+        'Create an account to unlock full features.',
+        'Guest mode is available, but an account is best!',
       ],
       image: require('assets/images/okay_emoji.png'),
     },
   ];
 
-  // Internal state / references
+  // State & Refs
   const [currentIndex, setCurrentIndex] = useState(0);
   const swiperRef = useRef<Swiper>(null);
   const router = useRouter();
 
-  // For arrow color, use the theme’s primary or a fallback.
-  const arrowColor = currentTheme.primary || '#000';
-
-  // We'll grab the window width to decide if it's "mobile" or not.
-  const { width: screenWidth } = useWindowDimensions();
-  // You can adjust this breakpoint to whatever you consider "mobile".
+  // Layout Settings
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const isMobile = screenWidth < 600;
+  const modalWidth = isMobile ? screenWidth : screenWidth * 0.9;
+  // On mobile, fill the screen vertically; on desktop, use maxHeight constraint.
+  const modalHeight = isMobile ? screenHeight : undefined;
+  const arrowWidth = isMobile ? 0 : 50;
+  const swiperWidth = modalWidth - arrowWidth * 2;
 
   // Handlers
   const handleCreateAccount = () => {
+    console.log('Create Account Pressed');
     onClose();
     setTimeout(() => {
       router.push('/(tabs)/profile');
@@ -128,141 +125,186 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
   };
 
   const handleContinueAsGuest = () => {
+    console.log('Continue as Guest Pressed');
     onClose();
   };
 
   const handlePrev = () => {
     if (currentIndex > 0) {
-      swiperRef.current?.scrollBy(-1);
+      console.log('Prev Pressed, currentIndex:', currentIndex);
+      swiperRef.current?.scrollBy(-1, true);
     }
   };
 
   const handleNext = () => {
     if (currentIndex < slides.length - 1) {
-      swiperRef.current?.scrollBy(1);
+      console.log('Next Pressed, currentIndex:', currentIndex);
+      swiperRef.current?.scrollBy(1, true);
+    } else {
+      console.log('Already at the last slide.');
     }
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
-      <View style={styles.modalWrapper}>
-        {/* Background overlay */}
-        <TouchableWithoutFeedback onPress={onClose}>
-          <View style={styles.overlay} />
-        </TouchableWithoutFeedback>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      presentationStyle="overFullScreen"
+    >
+      {/* Background overlay */}
+      <Pressable onPress={onClose} style={styles.overlay} />
 
-        {/* Modal content */}
-        <View style={styles.centerContainer}>
-          <View style={[styles.modalContainer, { backgroundColor: currentTheme.background }]}>
-            {/* Row for left arrow, swiper content, and right arrow */}
-            <View style={styles.rowContainer}>
-              {/* Left Arrow */}
-              <TouchableOpacity
+      {/* Modal Wrapper */}
+      <View style={[styles.modalWrapper, isMobile && { padding: 0 }]}>
+        <View
+          style={[
+            styles.modalContainer,
+            { width: modalWidth, backgroundColor: currentTheme.background },
+            modalHeight ? { height: modalHeight } : {},
+          ]}
+        >
+          <View style={styles.contentWrapper}>
+            {/* Left Arrow for desktop */}
+            {!isMobile && (
+              <Pressable
                 onPress={handlePrev}
                 disabled={currentIndex === 0}
-                style={[
+                style={({ pressed }) => [
                   styles.arrowContainer,
-                  { opacity: currentIndex === 0 ? 0.5 : 1 },
+                  { width: arrowWidth, opacity: currentIndex === 0 ? 0.5 : 1 },
+                  pressed && { opacity: 0.7 },
                 ]}
                 accessibilityLabel="Previous Slide"
               >
-                <Ionicons name="chevron-back" size={32} color={arrowColor} />
-              </TouchableOpacity>
-
-              {/* Swiper / Slides */}
-              <View style={styles.contentContainer}>
-                <Swiper
-                  ref={swiperRef}
-                  style={styles.wrapper}
-                  loop={false}
-                  scrollEnabled={false}
-                  showsPagination={false}
-                  onIndexChanged={setCurrentIndex}
-                >
-                  {slides.map((slide, idx) => {
-                    const isLastSlide = idx === slides.length - 1;
-                    return (
-                      <View
-                        key={idx}
-                        style={[
-                          styles.slide,
-                          { backgroundColor: currentTheme.background },
-                        ]}
-                      >
-                        {/* Icon or Image */}
-                        {slide.image ? (
-                          <Image
-                            source={slide.image}
-                            style={styles.slideImage}
-                          />
-                        ) : slide.iconName ? (
-                          <Ionicons
-                            name={slide.iconName}
-                            size={64}
-                            color={slide.iconColor || currentTheme.text}
-                            style={styles.slideIcon}
-                          />
-                        ) : null}
-
-                        {/* Title */}
-                        <Text style={[styles.title, { color: currentTheme.primary }]}>
-                          {slide.title}
-                        </Text>
-
-                        {/* Bullet points */}
-                        {slide.bulletPoints.map((point, i) => (
-                          <Text key={i} style={[styles.bulletText, { color: currentTheme.text }]}>
-                            • {point}
-                          </Text>
-                        ))}
-
-                        {/* Final slide buttons */}
-                        {isLastSlide && (
-                          <View
-                            style={[
-                              styles.buttonRow,
-                              // On mobile, switch to a column layout.
-                              isMobile ? styles.buttonRowMobile : null,
-                            ]}
-                          >
-                            <TouchableOpacity
-                              onPress={handleCreateAccount}
-                              style={[
-                                styles.finalButton,
-                                { backgroundColor: currentTheme.primary },
-                                isMobile ? { marginBottom: 12 } : null,
-                              ]}
-                            >
-                              <Text style={styles.buttonText}>Create Account</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              onPress={handleContinueAsGuest}
-                              style={[
-                                styles.finalButton,
-                                { backgroundColor: currentTheme.secondary || '#888' },
-                              ]}
-                            >
-                              <Text style={styles.buttonText}>Continue as Guest</Text>
-                            </TouchableOpacity>
-                          </View>
-                        )}
-                      </View>
-                    );
-                  })}
-                </Swiper>
-              </View>
-
-              {/* Right Arrow */}
-              <TouchableOpacity
-                onPress={handleNext}
-                style={styles.arrowContainer}
-                accessibilityLabel={
-                  currentIndex === slides.length - 1 ? 'Final Slide' : 'Next Slide'
-                }
+                <Ionicons name="chevron-back" size={32} color={currentTheme.primary || '#000'} />
+              </Pressable>
+            )}
+            {/* Swiper Container */}
+            <View style={[styles.swiperContainer, { width: isMobile ? modalWidth : swiperWidth }]}>
+              <Swiper
+                ref={swiperRef}
+                index={currentIndex}
+                loop={false}
+                showsPagination={!isMobile}
+                scrollEnabled={isMobile}
+                containerStyle={{ width: isMobile ? modalWidth : swiperWidth }}
+                onIndexChanged={(index) => {
+                  console.log('onIndexChanged:', index);
+                  setCurrentIndex(index);
+                }}
               >
-                <Ionicons name="chevron-forward" size={32} color={arrowColor} />
-              </TouchableOpacity>
+                {slides.map((slide, idx) => {
+                  const isLastSlide = idx === slides.length - 1;
+                  return (
+                    <View
+                      key={idx}
+                      style={[
+                        styles.slide,
+                        {
+                          width: isMobile ? modalWidth : swiperWidth,
+                          backgroundColor: currentTheme.background,
+                        },
+                      ]}
+                    >
+                      {/*
+                        On desktop, wrap the content in a ScrollView so that the vertical content
+                        is contained within the modal’s constraints.
+                      */}
+                      {!isMobile ? (
+                        <ScrollView contentContainerStyle={styles.slideContent}>
+                          {slide.image ? (
+                            <Image source={slide.image} style={styles.slideImage} />
+                          ) : slide.iconName ? (
+                            <Ionicons
+                              name={slide.iconName}
+                              size={64}
+                              color={slide.iconColor || currentTheme.text}
+                              style={styles.slideIcon}
+                            />
+                          ) : null}
+                          <Text style={[styles.title, { color: currentTheme.primary }]}>{slide.title}</Text>
+                          {slide.bulletPoints.map((point, i) => (
+                            <Text key={i} style={[styles.bulletText, { color: currentTheme.text }]}>
+                              • {point}
+                            </Text>
+                          ))}
+                          {/* For desktop, no swipe instruction */}
+                        </ScrollView>
+                      ) : (
+                        <>
+                          {slide.image ? (
+                            <Image source={slide.image} style={styles.slideImage} />
+                          ) : slide.iconName ? (
+                            <Ionicons
+                              name={slide.iconName}
+                              size={64}
+                              color={slide.iconColor || currentTheme.text}
+                              style={styles.slideIcon}
+                            />
+                          ) : null}
+                          <Text style={[styles.title, { color: currentTheme.primary }]}>{slide.title}</Text>
+                          {slide.bulletPoints.map((point, i) => (
+                            <Text key={i} style={[styles.bulletText, { color: currentTheme.text }]}>
+                              • {point}
+                            </Text>
+                          ))}
+                          {/* Swipe Instruction on Mobile */}
+                          {isMobile && !isLastSlide && (
+                            <View style={styles.swipeInstruction}>
+                              <Image source={require('assets/images/swipe.gif')} style={styles.swipeImage} />
+                              <Text style={styles.swipeText}>Swipe to Continue</Text>
+                            </View>
+                          )}
+                        </>
+                      )}
+
+                      {/* Final Slide Buttons */}
+                      {isLastSlide && (
+                        <View style={[styles.buttonRow, isMobile && styles.buttonRowMobile]}>
+                          <Pressable
+                            onPress={handleCreateAccount}
+                            style={({ pressed }) => [
+                              styles.finalButton,
+                              { backgroundColor: currentTheme.primary },
+                              pressed && styles.pressed,
+                            ]}
+                            accessibilityLabel="Create Account"
+                          >
+                            <Text style={styles.buttonText}>Create Account</Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={handleContinueAsGuest}
+                            style={({ pressed }) => [
+                              styles.finalButton,
+                              { backgroundColor: currentTheme.secondary || '#888' },
+                              pressed && styles.pressed,
+                            ]}
+                            accessibilityLabel="Continue as Guest"
+                          >
+                            <Text style={styles.buttonText}>Continue as Guest</Text>
+                          </Pressable>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </Swiper>
             </View>
+            {/* Right Arrow for desktop */}
+            {!isMobile && (
+              <Pressable
+                onPress={handleNext}
+                style={({ pressed }) => [
+                  styles.arrowContainer,
+                  { width: arrowWidth },
+                  pressed && { opacity: 0.7 },
+                ]}
+                accessibilityLabel="Next Slide"
+              >
+                <Ionicons name="chevron-forward" size={32} color={currentTheme.primary || '#000'} />
+              </Pressable>
+            )}
           </View>
         </View>
       </View>
@@ -271,51 +313,44 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
 }
 
 const styles = StyleSheet.create({
-  modalWrapper: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
-  centerContainer: {
-    width: '90%',
-    maxHeight: '90%',
+  modalWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   modalContainer: {
-    width: '100%',
-    height: '100%',
     borderRadius: 15,
-    paddingHorizontal: 20,
-    paddingVertical: 40,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 8,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    backgroundColor: '#fff',
+    maxHeight: '90%',
   },
-  rowContainer: {
+  contentWrapper: {
     flexDirection: 'row',
-    height: '100%',
-    width: '100%',
+    alignItems: 'center',
+    flex: 1,
   },
   arrowContainer: {
-    width: 50,
-    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  contentContainer: {
-    flex: 1,
-  },
-  wrapper: {
+  swiperContainer: {
     flex: 1,
   },
   slide: {
     flex: 1,
-    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  // For desktop slides, the ScrollView content container
+  slideContent: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -326,8 +361,8 @@ const styles = StyleSheet.create({
   slideImage: {
     width: 80,
     height: 80,
-    marginBottom: 20,
     resizeMode: 'contain',
+    marginBottom: 20,
   },
   title: {
     fontSize: 28,
@@ -337,9 +372,26 @@ const styles = StyleSheet.create({
   },
   bulletText: {
     fontSize: 18,
-    textAlign: 'left',
     marginBottom: 8,
-    width: '95%',
+    textAlign: 'center',
+  },
+  swipeInstruction: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  swipeImage: {
+    width: 40,
+    height: 40,
+    resizeMode: 'contain',
+    marginBottom: 5,
+  },
+  swipeText: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
   },
   buttonRow: {
     flexDirection: 'row',
@@ -349,12 +401,14 @@ const styles = StyleSheet.create({
   },
   buttonRowMobile: {
     flexDirection: 'column',
-    alignItems: 'stretch',
+    alignItems: 'center',
   },
   finalButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 15,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
     borderRadius: 8,
+    marginHorizontal: 10,
+    marginBottom: 10,
   },
   buttonText: {
     fontSize: 16,
@@ -362,5 +416,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
+  pressed: {
+    opacity: 0.7,
+  },
 });
-

@@ -6,9 +6,12 @@
 
 ## Immediate tasks
 ### Code Related
-
+* No way to access social page on mobile
+* Implement a pop up so if a user pressed on a graph it displays a modal of that graph to make it clearer to see
 * removing a friend or adding a friend or accepting a request makes you become that user... (only on same device by logging in and out)
+* Add daily streak to onboarding
 
+* Add funny comments when a user is logged in
 ### Report Related
 * justify defaulting dark mode in report
 
@@ -22,6 +25,7 @@
 
 * In future work consider adding language translations, more games, publishing etc
   * Also mention dockering app to improve deployment ease and downloading
+  * Notifications for activity
 ## Front End
 ### Game related
 
