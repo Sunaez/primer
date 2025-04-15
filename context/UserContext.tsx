@@ -3,6 +3,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { auth, db } from '@/components/firebaseConfig';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import THEMES from '@/constants/themes';
 
 export type ThemeName = keyof typeof THEMES;
@@ -26,7 +27,7 @@ interface UserContextValue {
   user: UserProfile | null;
   setUser: (user: UserProfile | null) => void;
   logout: () => Promise<void>;
-  loading: boolean; // new property
+  loading: boolean;
 }
 
 const UserContext = createContext<UserContextValue>({
@@ -41,9 +42,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Listen for authentication state changes
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
         const uid = firebaseUser.uid;
+        // Subscribe to user profile changes from Firestore
         const unsubscribeProfile = onSnapshot(doc(db, 'profile', uid), (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data();
@@ -58,7 +61,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           } else {
             setUser(null);
           }
-          setLoading(false); // auth state loaded
+          setLoading(false);
         });
         return () => {
           unsubscribeProfile();
@@ -73,9 +76,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Updated logout function that clears AsyncStorage
   const logout = async () => {
-    await signOut(auth);
-    setUser(null);
+    try {
+      await signOut(auth);
+      // Clear all cached data from AsyncStorage.
+      await AsyncStorage.clear();
+      setUser(null);
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
   };
 
   return (

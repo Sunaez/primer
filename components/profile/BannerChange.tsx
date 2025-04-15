@@ -63,9 +63,9 @@ export default function BannerChange({
   return (
     <Modal
       visible={visible}
-      // For iOS, use "fade" when the modal is transparent to avoid crashes.
       animationType={Platform.OS === "ios" ? "fade" : "slide"}
       transparent
+      presentationStyle="overFullScreen" // This helps prevent crash issues on iOS Expo Go
     >
       <View style={styles.overlay}>
         <View style={[styles.modalContainer, { backgroundColor: currentTheme.background }]}>
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E57373",
   },
   confirmButton: {
-    // backgroundColor overridden inline with currentTheme.primary
+    // backgroundColor is overridden inline with currentTheme.primary
   },
   buttonText: {
     color: "#fff",

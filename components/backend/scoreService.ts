@@ -6,6 +6,7 @@ import {
   runTransaction,
   serverTimestamp
 } from "firebase/firestore";
+import { runActivityNotifications } from "@/components/backend/activityNotifications";
 
 export interface ScoreData {
   [key: string]: any;
@@ -25,10 +26,13 @@ export interface ScoreData {
  *  - lastDailyUpdate: a string ("YYYY-MM-DD") representing the day when the daily best was updated.
  *  - totalPlays: total number of plays.
  *  - updatedAt: timestamp of the latest statistics update.
+ * 
+ * After updating the statistics, this function calls runActivityNotifications to
+ * generate activity notifications based on the current state.
  *
  * @param gameId The game identifier (e.g. "stroop", "snap", etc.)
  * @param data The raw score data; it must include at least `scoreIndex` (number)
- *             and optionally `timestamp` (number). If `timestamp` is absent, Date.now() is used.
+ *             and optionally `timestamp` (number). If absent, Date.now() is used.
  * @returns A promise that resolves with the document ID of the uploaded score.
  */
 export async function uploadGameScore(
@@ -48,8 +52,6 @@ export async function uploadGameScore(
 
   // Prepare to update the aggregated statistics.
   const statsDocRef = doc(db, "Statistics", userId, "games", gameId);
-
-  // Ensure we have a scoreIndex and timestamp; use current time if not provided.
   const newScoreIndex = data.scoreIndex || 0;
   const newTimestamp = data.timestamp || Date.now();
   const todayString = new Date(newTimestamp).toISOString().split("T")[0];
@@ -59,7 +61,7 @@ export async function uploadGameScore(
     const statsDoc = await transaction.get(statsDocRef);
 
     if (!statsDoc.exists()) {
-      // If no statistics document exists for this game, create one.
+      // Create a new statistics document if it does not exist.
       transaction.set(statsDocRef, {
         bestScoreIndex: newScoreIndex,
         dailyBestScoreIndex: newScoreIndex,
@@ -75,16 +77,16 @@ export async function uploadGameScore(
       let updatedDailyBest = currentDailyBest;
       let updatedDailyDate = lastDailyUpdate;
 
-      // Check if the stored daily update corresponds to today.
+      // Update daily best if today matches; otherwise, reset for a new day.
       if (lastDailyUpdate === todayString) {
         if (newScoreIndex > currentDailyBest) {
           updatedDailyBest = newScoreIndex;
         }
       } else {
-        // New day — reset the daily best to the new score.
         updatedDailyBest = newScoreIndex;
         updatedDailyDate = todayString;
       }
+
       const updatedBest = newScoreIndex > currentBest ? newScoreIndex : currentBest;
       const updatedTotalPlays = (statsData.totalPlays || 0) + 1;
 
@@ -97,6 +99,9 @@ export async function uploadGameScore(
       });
     }
   });
+
+  // Generate activity notifications using the client's current statistics.
+  await runActivityNotifications(userId, gameId);
 
   return newDocRef.id;
 }

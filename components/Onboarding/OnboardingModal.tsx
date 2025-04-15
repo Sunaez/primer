@@ -6,10 +6,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  Pressable,
   Text,
   Image,
-  useWindowDimensions, // <-- Import for responsive checks
+  useWindowDimensions,
 } from 'react-native';
 import Swiper from 'react-native-swiper';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -146,137 +145,140 @@ export default function OnboardingModal({ visible, onClose }: OnboardingModalPro
 
   return (
     <Modal visible={visible} transparent animationType="slide">
-      {/* Pressing anywhere on the dark overlay will close the modal */}
-      <Pressable style={styles.overlay} onPress={onClose}>
-        {/* Prevent overlay press from closing the modal when tapping inside */}
-        <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-          <View style={styles.centerContainer}>
-            <View style={[styles.modalContainer, { backgroundColor: currentTheme.background }]}>
-              {/* Row for left arrow, swiper content, and right arrow */}
-              <View style={styles.rowContainer}>
-                {/* Left Arrow */}
-                <TouchableOpacity
-                  onPress={handlePrev}
-                  disabled={currentIndex === 0}
-                  style={[
-                    styles.arrowContainer,
-                    { opacity: currentIndex === 0 ? 0.5 : 1 },
-                  ]}
-                  accessibilityLabel="Previous Slide"
+      <View style={styles.modalWrapper}>
+        {/* Background overlay */}
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={styles.overlay} />
+        </TouchableWithoutFeedback>
+
+        {/* Modal content */}
+        <View style={styles.centerContainer}>
+          <View style={[styles.modalContainer, { backgroundColor: currentTheme.background }]}>
+            {/* Row for left arrow, swiper content, and right arrow */}
+            <View style={styles.rowContainer}>
+              {/* Left Arrow */}
+              <TouchableOpacity
+                onPress={handlePrev}
+                disabled={currentIndex === 0}
+                style={[
+                  styles.arrowContainer,
+                  { opacity: currentIndex === 0 ? 0.5 : 1 },
+                ]}
+                accessibilityLabel="Previous Slide"
+              >
+                <Ionicons name="chevron-back" size={32} color={arrowColor} />
+              </TouchableOpacity>
+
+              {/* Swiper / Slides */}
+              <View style={styles.contentContainer}>
+                <Swiper
+                  ref={swiperRef}
+                  style={styles.wrapper}
+                  loop={false}
+                  scrollEnabled={false}
+                  showsPagination={false}
+                  onIndexChanged={setCurrentIndex}
                 >
-                  <Ionicons name="chevron-back" size={32} color={arrowColor} />
-                </TouchableOpacity>
+                  {slides.map((slide, idx) => {
+                    const isLastSlide = idx === slides.length - 1;
+                    return (
+                      <View
+                        key={idx}
+                        style={[
+                          styles.slide,
+                          { backgroundColor: currentTheme.background },
+                        ]}
+                      >
+                        {/* Icon or Image */}
+                        {slide.image ? (
+                          <Image
+                            source={slide.image}
+                            style={styles.slideImage}
+                          />
+                        ) : slide.iconName ? (
+                          <Ionicons
+                            name={slide.iconName}
+                            size={64}
+                            color={slide.iconColor || currentTheme.text}
+                            style={styles.slideIcon}
+                          />
+                        ) : null}
 
-                {/* Swiper / Slides */}
-                <View style={styles.contentContainer}>
-                  <Swiper
-                    ref={swiperRef}
-                    style={styles.wrapper}
-                    loop={false}
-                    scrollEnabled={false}
-                    showsPagination={false}
-                    onIndexChanged={setCurrentIndex}
-                  >
-                    {slides.map((slide, idx) => {
-                      const isLastSlide = idx === slides.length - 1;
+                        {/* Title */}
+                        <Text style={[styles.title, { color: currentTheme.primary }]}>
+                          {slide.title}
+                        </Text>
 
-                      return (
-                        <View
-                          key={idx}
-                          style={[
-                            styles.slide,
-                            { backgroundColor: currentTheme.background },
-                          ]}
-                        >
-                          {/* Icon or Image */}
-                          {slide.image ? (
-                            <Image
-                              source={slide.image}
-                              style={styles.slideImage}
-                            />
-                          ) : slide.iconName ? (
-                            <Ionicons
-                              name={slide.iconName}
-                              size={64}
-                              color={slide.iconColor || currentTheme.text}
-                              style={styles.slideIcon}
-                            />
-                          ) : null}
-
-                          {/* Title */}
-                          <Text style={[styles.title, { color: currentTheme.primary }]}>
-                            {slide.title}
+                        {/* Bullet points */}
+                        {slide.bulletPoints.map((point, i) => (
+                          <Text key={i} style={[styles.bulletText, { color: currentTheme.text }]}>
+                            • {point}
                           </Text>
+                        ))}
 
-                          {/* Bullet points */}
-                          {slide.bulletPoints.map((point, i) => (
-                            <Text key={i} style={[styles.bulletText, { color: currentTheme.text }]}>
-                              • {point}
-                            </Text>
-                          ))}
-
-                          {/* Final slide buttons */}
-                          {isLastSlide && (
-                            <View
+                        {/* Final slide buttons */}
+                        {isLastSlide && (
+                          <View
+                            style={[
+                              styles.buttonRow,
+                              // On mobile, switch to a column layout.
+                              isMobile ? styles.buttonRowMobile : null,
+                            ]}
+                          >
+                            <TouchableOpacity
+                              onPress={handleCreateAccount}
                               style={[
-                                styles.buttonRow,
-                                // On mobile, we switch to a column layout
-                                isMobile ? styles.buttonRowMobile : null,
+                                styles.finalButton,
+                                { backgroundColor: currentTheme.primary },
+                                isMobile ? { marginBottom: 12 } : null,
                               ]}
                             >
-                              <TouchableOpacity
-                                onPress={handleCreateAccount}
-                                style={[
-                                  styles.finalButton,
-                                  { backgroundColor: currentTheme.primary },
-                                  // On mobile, we add a bit of margin to separate the buttons
-                                  isMobile ? { marginBottom: 12 } : null,
-                                ]}
-                              >
-                                <Text style={styles.buttonText}>Create Account</Text>
-                              </TouchableOpacity>
-                              <TouchableOpacity
-                                onPress={handleContinueAsGuest}
-                                style={[
-                                  styles.finalButton,
-                                  { backgroundColor: currentTheme.secondary || '#888' },
-                                ]}
-                              >
-                                <Text style={styles.buttonText}>Continue as Guest</Text>
-                              </TouchableOpacity>
-                            </View>
-                          )}
-                        </View>
-                      );
-                    })}
-                  </Swiper>
-                </View>
-
-                {/* Right Arrow */}
-                <TouchableOpacity
-                  onPress={handleNext}
-                  style={styles.arrowContainer}
-                  accessibilityLabel={
-                    currentIndex === slides.length - 1 ? 'Final Slide' : 'Next Slide'
-                  }
-                >
-                  <Ionicons name="chevron-forward" size={32} color={arrowColor} />
-                </TouchableOpacity>
+                              <Text style={styles.buttonText}>Create Account</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={handleContinueAsGuest}
+                              style={[
+                                styles.finalButton,
+                                { backgroundColor: currentTheme.secondary || '#888' },
+                              ]}
+                            >
+                              <Text style={styles.buttonText}>Continue as Guest</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+                </Swiper>
               </View>
+
+              {/* Right Arrow */}
+              <TouchableOpacity
+                onPress={handleNext}
+                style={styles.arrowContainer}
+                accessibilityLabel={
+                  currentIndex === slides.length - 1 ? 'Final Slide' : 'Next Slide'
+                }
+              >
+                <Ionicons name="chevron-forward" size={32} color={arrowColor} />
+              </TouchableOpacity>
             </View>
           </View>
-        </TouchableWithoutFeedback>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  modalWrapper: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   centerContainer: {
     width: '90%',
@@ -288,11 +290,11 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     paddingHorizontal: 20,
     paddingVertical: 40,
-    shadowColor: '#000', // iOS shadow
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 5,
-    elevation: 8, // Android elevation
+    elevation: 8,
   },
   rowContainer: {
     flexDirection: 'row',
@@ -345,11 +347,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     width: '100%',
   },
-  // Switch to vertical layout if on mobile
   buttonRowMobile: {
     flexDirection: 'column',
     alignItems: 'stretch',
-    // you could also add alignItems: 'center' if you want each button centered
   },
   finalButton: {
     paddingVertical: 10,
@@ -363,3 +363,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+

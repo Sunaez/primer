@@ -52,8 +52,6 @@ const THEMES = {
     scrollbarThumb: '#C2185B',
     scrollbarTrack: '#FFE4E8',
     progressBar: '#E91E63',
-    shadowSoft: 'rgba(194,24,91,0.2)',
-    shadowHard: 'rgba(194,24,91,0.6)',
     selection: '#FF80AB',
     daily: '#FF4081',
     freeplay: '#E040FB',
@@ -114,8 +112,6 @@ const THEMES = {
     scrollbarThumb: '#7DAA7E',
     scrollbarTrack: '#C8E6C9',
     progressBar: '#66BB6A',
-    shadowSoft: 'rgba(125,170,126,0.2)',
-    shadowHard: 'rgba(125,170,126,0.6)',
     selection: '#8BC34A',
     daily: '#66BB6A',    // Brighter, more saturated green
     freeplay: '#43A047', // Deeper emerald green
@@ -146,8 +142,6 @@ const THEMES = {
     scrollbarThumb: '#9C5A3D',
     scrollbarTrack: '#F2D7C3',
     progressBar: '#CD5C5C',
-    shadowSoft: 'rgba(156,90,61,0.2)',
-    shadowHard: 'rgba(156,90,61,0.6)',
     selection: '#FF8A80',
     daily: '#9C5A3D',    // Synergizes with primary.
     freeplay: '#E91E63', // A saturated, pinkish hue.

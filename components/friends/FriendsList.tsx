@@ -1,15 +1,21 @@
 import React from "react";
-import { View, Text, Image, StyleSheet, Alert } from "react-native";
+import { View, Text, Image, StyleSheet } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import OtherUser from "@/components/OtherUser";
 
 interface FriendsListProps {
-  friends: any[];
+  friends: any[];             // Full friend model (including username, bannerColor, theme, photoURL, etc.)
   currentTheme: any;
   onRemoveFriend: (uid: string) => void;
   onBlockFriend: (uid: string) => void;
 }
 
+/**
+ * FriendsList:
+ * • Renders the list of friends with the full model and styling.
+ * • IMPORTANT: The callbacks onRemoveFriend and onBlockFriend must update 
+ *   only the "friends" field in the database. They should not affect the current user’s profile.
+ */
 export default function FriendsList({
   friends,
   currentTheme,
@@ -39,6 +45,7 @@ export default function FriendsList({
             bannerColor={friend.bannerColor}
             theme={friend.theme}
             photoURL={friend.photoURL}
+            // These functions are assumed to update only the friends list
             onRemove={() => onRemoveFriend(friend.uid)}
             onBlock={() => onBlockFriend(friend.uid)}
           />

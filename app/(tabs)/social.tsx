@@ -1,4 +1,3 @@
-// app/(tabs)/social.tsx
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -19,13 +18,12 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withSpring,
   Easing,
 } from 'react-native-reanimated';
 import { auth } from '@/components/firebaseConfig';
 import { PanGestureHandler } from 'react-native-gesture-handler';
 
-export default function Social() {
+const Social = () => {
   const { themeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
   const { user } = useUserContext();
@@ -33,7 +31,15 @@ export default function Social() {
   // Fallback UI if no user is logged in.
   if (!user) {
     return (
-      <View style={[styles.fallbackContainer, { backgroundColor: currentTheme.background }]}>
+      <View
+        style={[
+          styles.fallbackContainer,
+          {
+            backgroundColor: currentTheme.background,
+            borderColor: currentTheme.border,
+          },
+        ]}
+      >
         <Image
           source={require("@/assets/images/shrug_emoji.png")}
           style={styles.fallbackImage}
@@ -52,13 +58,13 @@ export default function Social() {
   const navWidth = 256;
   const desktopAvailableWidth = windowWidth - navWidth;
 
-  // Collapsible Activity Column State for Desktop
+  // Collapsible Activity Column State (Desktop)
   const [activityCollapsed, setActivityCollapsed] = useState(false);
   const handleWidth = 32;
   const leftColumnWidth = activityCollapsed ? 0 : desktopAvailableWidth / 3;
   const rightColumnWidth = desktopAvailableWidth - leftColumnWidth - handleWidth;
 
-  // Rotate an Ionicon based on whether the activity column is collapsed
+  // Rotate an Ionicon based on whether the activity column is collapsed.
   const iconRotation = useSharedValue(activityCollapsed ? 180 : 0);
   useEffect(() => {
     iconRotation.value = withTiming(activityCollapsed ? 180 : 0, {
@@ -114,7 +120,14 @@ export default function Social() {
           <ActivityIcon />
           <View style={styles.dropdownContainer}>
             <TouchableOpacity
-              style={[styles.selectedGameButton, { backgroundColor: currentTheme.card }]}
+              style={[
+                styles.selectedGameButton,
+                {
+                  backgroundColor: currentTheme.card,
+                  borderColor: currentTheme.border,
+                  borderWidth: 1,
+                },
+              ]}
               onPress={toggleDropdown}
             >
               <Text style={{ color: currentTheme.text }}>
@@ -126,9 +139,22 @@ export default function Social() {
                 color={currentTheme.text}
               />
             </TouchableOpacity>
-            <Animated.View style={[styles.dropdownList, { backgroundColor: currentTheme.surface }, dropdownStyle]}>
+            <Animated.View
+              style={[
+                styles.dropdownList,
+                { backgroundColor: currentTheme.surface },
+                dropdownStyle,
+              ]}
+            >
               {GAMES.map((game) => (
-                <TouchableOpacity key={game.id} style={styles.dropdownItem} onPress={() => onSelectGame(game.id)}>
+                <TouchableOpacity
+                  key={game.id}
+                  style={[
+                    styles.dropdownItem,
+                    { borderBottomWidth: 1, borderBottomColor: currentTheme.divider },
+                  ]}
+                  onPress={() => onSelectGame(game.id)}
+                >
                   <Text style={{ color: game.id === selectedGame ? currentTheme.primary : currentTheme.text }}>
                     {game.title}
                   </Text>
@@ -150,13 +176,26 @@ export default function Social() {
         </>
       ) : (
         <View style={styles.desktopContainer}>
-          <View style={[styles.activityColumn, { width: leftColumnWidth }]}>
+          <View
+            style={[
+              styles.activityColumn,
+              { width: leftColumnWidth, borderRightWidth: 1, borderRightColor: currentTheme.divider },
+            ]}
+          >
             {!activityCollapsed && (
               <ActivityColumn currentTheme={currentTheme} width={leftColumnWidth} />
             )}
           </View>
           <TouchableOpacity
-            style={[styles.handleArea, { width: handleWidth, backgroundColor: currentTheme.card }]}
+            style={[
+              styles.handleArea,
+              {
+                width: handleWidth,
+                backgroundColor: currentTheme.card,
+                borderLeftWidth: 1,
+                borderLeftColor: currentTheme.divider,
+              },
+            ]}
             onPress={() => setActivityCollapsed(!activityCollapsed)}
             activeOpacity={0.7}
           >
@@ -167,7 +206,14 @@ export default function Social() {
           <View style={{ width: rightColumnWidth }}>
             <View style={styles.dropdownContainer}>
               <TouchableOpacity
-                style={[styles.selectedGameButton, { backgroundColor: currentTheme.card }]}
+                style={[
+                  styles.selectedGameButton,
+                  {
+                    backgroundColor: currentTheme.card,
+                    borderColor: currentTheme.border,
+                    borderWidth: 1,
+                  },
+                ]}
                 onPress={toggleDropdown}
               >
                 <Text style={{ color: currentTheme.text }}>
@@ -179,9 +225,22 @@ export default function Social() {
                   color={currentTheme.text}
                 />
               </TouchableOpacity>
-              <Animated.View style={[styles.dropdownList, { backgroundColor: currentTheme.surface }, dropdownStyle]}>
+              <Animated.View
+                style={[
+                  styles.dropdownList,
+                  { backgroundColor: currentTheme.surface },
+                  dropdownStyle,
+                ]}
+              >
                 {GAMES.map((game) => (
-                  <TouchableOpacity key={game.id} style={styles.dropdownItem} onPress={() => onSelectGame(game.id)}>
+                  <TouchableOpacity
+                    key={game.id}
+                    style={[
+                      styles.dropdownItem,
+                      { borderBottomWidth: 1, borderBottomColor: currentTheme.divider },
+                    ]}
+                    onPress={() => onSelectGame(game.id)}
+                  >
                     <Text style={{ color: game.id === selectedGame ? currentTheme.primary : currentTheme.text }}>
                       {game.title}
                     </Text>
@@ -200,15 +259,18 @@ export default function Social() {
       )}
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1,
+  },
   fallbackContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 16,
+    borderRadius: 10,
   },
   fallbackImage: {
     width: 120,
@@ -217,24 +279,46 @@ const styles = StyleSheet.create({
   },
   fallbackText: {
     fontSize: 18,
-    textAlign: "center",
+    textAlign: 'center',
   },
   desktopContainer: {
     flex: 1,
-    flexDirection: "row",
+    flexDirection: 'row',
   },
-  activityColumn: { height: "100%", overflow: "hidden" },
-  handleArea: { justifyContent: "center", alignItems: "center" },
-  activityIcon: { position: "absolute", top: 16, right: 16, zIndex: 10 },
-  dropdownContainer: { margin: 16, zIndex: 100 },
+  activityColumn: {
+    height: '100%',
+    overflow: 'hidden',
+  },
+  handleArea: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activityIcon: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    zIndex: 10,
+  },
+  dropdownContainer: {
+    margin: 16,
+    zIndex: 100,
+  },
   selectedGameButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,
   },
-  dropdownList: { borderRadius: 6, overflow: "hidden" },
-  dropdownItem: { paddingVertical: 8, paddingHorizontal: 12 },
+  dropdownList: {
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
 });
+
+export default Social;

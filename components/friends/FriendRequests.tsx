@@ -1,4 +1,3 @@
-// /components/friends/FriendRequests.tsx
 import React from "react";
 import { View, Text, Image, StyleSheet } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
@@ -14,6 +13,13 @@ interface FriendRequestsProps {
   onCancel: (uid: string) => void;
 }
 
+/**
+ * FriendRequests:
+ * • Displays incoming and outgoing friend requests.
+ * • Each request is rendered with its full model (username, bannerColor, theme, photoURL).
+ * • The action callbacks (onAccept, onReject, onBlock, onCancel) must update only the
+ *   friend requests data in the database, never affecting the current user’s profile.
+ */
 export default function FriendRequests({
   friendRequests,
   outgoingRequests,
@@ -23,7 +29,7 @@ export default function FriendRequests({
   onBlock,
   onCancel,
 }: FriendRequestsProps) {
-  // If no incoming and no outgoing requests, render a fallback.
+  // Fallback screen if there are no friend requests
   if (friendRequests.length === 0 && outgoingRequests.length === 0) {
     return (
       <View style={styles.fallbackContainer}>
@@ -40,7 +46,6 @@ export default function FriendRequests({
     );
   }
 
-  // Otherwise, show incoming and outgoing requests.
   return (
     <View style={styles.container}>
       <Text style={[styles.sectionHeader, { color: currentTheme.text }]}>
@@ -60,6 +65,7 @@ export default function FriendRequests({
               bannerColor={req.bannerColor}
               theme={req.theme}
               photoURL={req.photoURL}
+              // Callback functions here update only the friend requests data
               onAccept={() => onAccept(req.uid)}
               onReject={() => onReject(req.uid)}
               onBlock={() => onBlock(req.uid)}
@@ -84,6 +90,7 @@ export default function FriendRequests({
               bannerColor={req.bannerColor}
               theme={req.theme}
               photoURL={req.photoURL}
+              // onCancel here should update the outgoing requests only
               onCancel={() => onCancel(req.uid)}
             />
           </Animated.View>

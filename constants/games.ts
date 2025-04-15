@@ -1,7 +1,6 @@
 import { AVPlaybackSource } from 'expo-av';
 import ArithmeticChallenge from '@/games/maths';
 import ReactionGame from '@/app/games/snap';
-import SnapGame from '@/app/games/reaction';
 import PairsGame from '@/app/games/pairs';
 import StroopTest from '@/app/games/stroop';
 
@@ -31,17 +30,6 @@ export const GAMES: Game[] = [
       'Click as soon as you see them match, the faster the better !!',
     ],
     video: require('@/assets/videos/snap.mp4'),
-    component: SnapGame,
-  },
-  {
-    id: 'reaction',
-    title: 'Reaction Game',
-    instructions: [
-      'Wait for the screen to change color.',
-      'Tap as quickly as possible when it does.',
-      'Compare your reaction time with your friends!',
-    ],
-    video: undefined,
     component: ReactionGame,
   },
   {

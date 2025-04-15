@@ -2,11 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import {
   Modal,
+  SafeAreaView,
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   ScrollView,
 } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
@@ -29,18 +29,31 @@ interface GameStats {
   updatedAt?: any;
 }
 
+const FADE_OUT_DURATION = 300; // Duration in ms for the FadeOut animation
+
 const ViewStats: React.FC<ViewStatsProps> = ({ visible, onClose }) => {
   const { user } = useUserContext();
-  // Obtain the current theme name via useThemeContext.
   const { themeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
 
   const [selectedGameId, setSelectedGameId] = useState(GAMES[0].id);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [stats, setStats] = useState<GameStats | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Whenever the selected game or user changes, load its statistics.
+  // State to control whether the exit animation should be applied.
+  const [shouldAnimateExit, setShouldAnimateExit] = useState(true);
+
+  // When the modal becomes hidden, disable the exit animation so it only plays once.
+  useEffect(() => {
+    if (!visible && shouldAnimateExit) {
+      setTimeout(() => {
+        setShouldAnimateExit(false);
+      }, FADE_OUT_DURATION);
+    }
+  }, [visible, shouldAnimateExit]);
+
+  // Load statistics when the selected game or user changes.
   useEffect(() => {
     async function loadStats() {
       if (!user) return;
@@ -67,103 +80,100 @@ const ViewStats: React.FC<ViewStatsProps> = ({ visible, onClose }) => {
       <Animated.View
         style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}
         entering={FadeIn}
-        exiting={FadeOut}
+        exiting={shouldAnimateExit ? FadeOut : undefined}
       >
-        <View
-          style={[
-            styles.modalContainer,
-            {
-              backgroundColor: currentTheme.background,
-              borderColor: currentTheme.border,
-            },
-          ]}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={[styles.headerTitle, { color: currentTheme.text }]}>
-              Your Statistics
-            </Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={28} color={currentTheme.text} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Custom Dropdown */}
-          <Text style={[styles.label, { color: currentTheme.text }]}>Select Game:</Text>
-          <TouchableOpacity
+        <SafeAreaView style={styles.safeArea}>
+          <View
             style={[
-              styles.dropdownContainer,
+              styles.modalContainer,
               {
+                backgroundColor: currentTheme.background,
                 borderColor: currentTheme.border,
-                backgroundColor: currentTheme.inputBackground,
               },
             ]}
-            onPress={() => setDropdownOpen(!dropdownOpen)}
           >
-            <Text style={[styles.dropdownText, { color: currentTheme.text }]}>
-              {GAMES.find((game) => game.id === selectedGameId)?.title || "Select Game"}
-            </Text>
-            <Ionicons
-              name={dropdownOpen ? "chevron-up-outline" : "chevron-down-outline"}
-              size={20}
-              color={currentTheme.text}
-            />
-          </TouchableOpacity>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={[styles.headerTitle, { color: currentTheme.text }]}>
+                Your Statistics
+              </Text>
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Ionicons name="close" size={28} color={currentTheme.text} />
+              </TouchableOpacity>
+            </View>
 
-          {/* Dropdown Options */}
-          {dropdownOpen && (
-            <View
+            {/* Custom Dropdown */}
+            <Text style={[styles.label, { color: currentTheme.text }]}>Select Game:</Text>
+            <TouchableOpacity
               style={[
-                styles.dropdownOptions,
+                styles.dropdownContainer,
                 {
-                  backgroundColor: currentTheme.surface,
                   borderColor: currentTheme.border,
+                  backgroundColor: currentTheme.inputBackground,
                 },
               ]}
+              onPress={() => setDropdownOpen(!dropdownOpen)}
             >
-              {GAMES.map((game) => (
-                <TouchableOpacity
-                  key={game.id}
-                  style={styles.dropdownOption}
-                  onPress={() => {
-                    setSelectedGameId(game.id);
-                    setDropdownOpen(false);
-                  }}
-                >
-                  <Text style={[styles.dropdownOptionText, { color: currentTheme.text }]}>
-                    {game.title}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+              <Text style={[styles.dropdownText, { color: currentTheme.text }]}>
+                {GAMES.find((game) => game.id === selectedGameId)?.title || "Select Game"}
+              </Text>
+              <Ionicons
+                name={dropdownOpen ? "chevron-up-outline" : "chevron-down-outline"}
+                size={20}
+                color={currentTheme.text}
+              />
+            </TouchableOpacity>
 
-          {/* Statistics Display */}
-          <View style={styles.statsContainer}>
-            {loading ? (
-              <ActivityIndicator size="large" color={currentTheme.primary} />
-            ) : stats ? (
-              <ScrollView>
+            {/* Dropdown Options */}
+            {dropdownOpen && (
+              <View
+                style={[
+                  styles.dropdownOptions,
+                  {
+                    backgroundColor: currentTheme.surface,
+                    borderColor: currentTheme.border,
+                  },
+                ]}
+              >
+                {GAMES.map((game) => (
+                  <TouchableOpacity
+                    key={game.id}
+                    style={styles.dropdownOption}
+                    onPress={() => {
+                      setSelectedGameId(game.id);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    <Text style={[styles.dropdownOptionText, { color: currentTheme.text }]}>
+                      {game.title}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {/* Statistics Display */}
+            <View style={styles.statsContainer}>
+              <ScrollView contentContainerStyle={styles.scrollContainer}>
                 <Text style={[styles.statText, { color: currentTheme.text }]}>
-                  Best Score Index: {stats.bestScoreIndex ?? 'N/A'}
+                  Best Score Index: {stats?.bestScoreIndex ?? 'N/A'}
                 </Text>
                 <Text style={[styles.statText, { color: currentTheme.text }]}>
-                  Daily Best Score Index: {stats.dailyBestScoreIndex ?? 'N/A'}
+                  Daily Best Score Index: {stats?.dailyBestScoreIndex ?? 'N/A'}
                 </Text>
                 <Text style={[styles.statText, { color: currentTheme.text }]}>
-                  Total Plays: {stats.totalPlays ?? 'N/A'}
+                  Total Plays: {stats?.totalPlays ?? 'N/A'}
                 </Text>
                 <Text style={[styles.statText, { color: currentTheme.text }]}>
-                  Last Updated: {stats.updatedAt ? stats.updatedAt.toDate().toLocaleString() : 'N/A'}
+                  Last Updated:{" "}
+                  {stats && stats.updatedAt
+                    ? stats.updatedAt.toDate().toLocaleString()
+                    : 'N/A'}
                 </Text>
               </ScrollView>
-            ) : (
-              <Text style={[styles.statText, { color: currentTheme.text }]}>
-                No statistics available for this game.
-              </Text>
-            )}
+            </View>
           </View>
-        </View>
+        </SafeAreaView>
       </Animated.View>
     </Modal>
   );
@@ -172,6 +182,12 @@ const ViewStats: React.FC<ViewStatsProps> = ({ visible, onClose }) => {
 export default ViewStats;
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    width: '100%',
+    alignItems: "center",
+    justifyContent: "center",
+  },
   overlay: {
     flex: 1,
     justifyContent: "center",
@@ -232,7 +248,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   statsContainer: {
-    flex: 1,
+    maxHeight: 200,
+    width: '100%',
+  },
+  scrollContainer: {
+    paddingBottom: 20,
   },
   statText: {
     fontSize: 16,

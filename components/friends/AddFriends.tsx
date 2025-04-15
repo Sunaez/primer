@@ -15,6 +15,14 @@ interface AddFriendsProps {
   onPageChange: (page: number) => void;
 }
 
+/**
+ * AddFriends:
+ * • Renders a searchable list of users (using the full model including styling data) 
+ *   so that the view appears exactly as designed.
+ * • When a user is requested, the onSendRequest callback should update only the friend’s 
+ *   portion of the database (e.g., by adding the uid to a "sent requests" list) 
+ *   without affecting your overall profile or theme.
+ */
 export default function AddFriends({
   filteredUsers,
   searchTerm,
@@ -29,7 +37,10 @@ export default function AddFriends({
   return (
     <View style={styles.container}>
       <TextInput
-        style={[styles.searchInput, { borderColor: currentTheme.text, color: currentTheme.text }]}
+        style={[
+          styles.searchInput,
+          { borderColor: currentTheme.text, color: currentTheme.text }
+        ]}
         placeholder="Search users..."
         placeholderTextColor={currentTheme.text}
         value={searchTerm}
@@ -45,6 +56,7 @@ export default function AddFriends({
               bannerColor={item.bannerColor}
               theme={item.theme}
               photoURL={item.photoURL}
+              // onAdd triggers friend request update without affecting global profile
               onAdd={() => onSendRequest(item.uid)}
               requestSent={requestSent.includes(item.uid)}
             />

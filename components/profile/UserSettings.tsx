@@ -1,3 +1,4 @@
+// /components/UserSettings.tsx
 import React, { useState, useEffect } from "react";
 import {
   Modal,
@@ -93,7 +94,7 @@ export default function UserSettings({ visible, onClose }: UserSettingsProps) {
     onClose();
   };
 
-  // Logout using context helper.
+  // Logout using the updated context helper that clears AsyncStorage.
   const handleLogout = async () => {
     if (!user) return;
     try {
@@ -105,7 +106,6 @@ export default function UserSettings({ visible, onClose }: UserSettingsProps) {
   };
 
   // Delete account - deletes all of the user's data.
-  // Adjust this function to delete any additional data (such as subcollections) if needed.
   const handleConfirmDeletion = async () => {
     if (!user) return;
     try {
@@ -197,7 +197,7 @@ export default function UserSettings({ visible, onClose }: UserSettingsProps) {
               <TouchableOpacity
                 style={[
                   styles.button,
-                  { backgroundColor: currentTheme.primary }, // Logout button
+                  { backgroundColor: currentTheme.primary },
                 ]}
                 onPress={handleLogout}
               >
@@ -207,7 +207,7 @@ export default function UserSettings({ visible, onClose }: UserSettingsProps) {
               <TouchableOpacity
                 style={[
                   styles.button,
-                  { backgroundColor: currentTheme.error }, // Delete account button uses error color.
+                  { backgroundColor: currentTheme.error },
                 ]}
                 onPress={() => setDeleteModalVisible(true)}
               >
@@ -264,7 +264,7 @@ export default function UserSettings({ visible, onClose }: UserSettingsProps) {
                   {
                     backgroundColor: confirmationText === "CONFIRM"
                       ? currentTheme.error
-                      : "#666", // darkened appearance for inactive button
+                      : "#666",
                     flex: 1,
                     justifyContent: "center",
                   },
