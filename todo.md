@@ -7,11 +7,12 @@
 ## Immediate tasks
 ### Code Related
 
-* removing a friend or adding a friend or accepting a request makes you become that user... (only on same)
-
+* removing a friend or adding a friend or accepting a request makes you become that user... (only on same device by logging in and out)
 
 ### Report Related
 * justify defaulting dark mode in report
+
+* Write about onboarding, why and what it does and why its useful
 
 * Write about the activity page
  * Adding messages for beating your own high score
