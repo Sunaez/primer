@@ -1,7 +1,6 @@
 # Tasks to do
 ## Immediate tasks
 ### Report Related
-* Add LOTS of screenshots to make it look much nicer -D
 ## ideas
 
 presentation for demo needs to be done after report is completed

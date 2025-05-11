@@ -1,0 +1,11 @@
+{
+    "name": "primer",
+    "compatibility_date": "2025-05-11",
+    "build": {
+      "command": "npm run build"
+    },
+    "assets": {
+      "directory": "./dist"
+    }
+  }
+  
