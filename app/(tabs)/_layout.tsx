@@ -3,6 +3,7 @@ import React from 'react';
 import { useWindowDimensions, Platform } from 'react-native';
 import { useThemeContext } from '@/context/UserContext';
 import THEMES from '@/constants/themes';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import MobileNavBar from '@/components/NavigationBar/MobileNavBar';
 import DesktopNavBar from '@/components/NavigationBar/DesktopNavBar';
 
