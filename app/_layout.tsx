@@ -2,9 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet, SafeAreaView } from 'react-native';
 import { Stack } from 'expo-router';
 import * as Font from 'expo-font';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UserProvider, useUserContext } from '@/context/UserContext';
 import THEMES from '@/constants/themes';
 import OnboardingModal from '@/components/Onboarding/OnboardingModal';
+
+const ONBOARDING_STORAGE_KEY = 'primer:onboarding-complete';
 
 function RootContent({ fontsLoaded }: { fontsLoaded: boolean }) {
   const { user, loading } = useUserContext();
@@ -30,15 +33,46 @@ function RootContent({ fontsLoaded }: { fontsLoaded: boolean }) {
 function AppContainer({ fontsLoaded }: { fontsLoaded: boolean }) {
   const { user, loading } = useUserContext();
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
+  const [onboardingReady, setOnboardingReady] = useState(false);
 
-  const handleOnboardingComplete = () => {
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadOnboardingState() {
+      try {
+        const storedValue = await AsyncStorage.getItem(ONBOARDING_STORAGE_KEY);
+        if (mounted) {
+          setOnboardingCompleted(storedValue === 'true');
+        }
+      } catch (error) {
+        console.error('Error loading onboarding state:', error);
+      } finally {
+        if (mounted) {
+          setOnboardingReady(true);
+        }
+      }
+    }
+
+    loadOnboardingState();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleOnboardingComplete = async () => {
     setOnboardingCompleted(true);
+    try {
+      await AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, 'true');
+    } catch (error) {
+      console.error('Error saving onboarding state:', error);
+    }
   };
 
   return (
     <>
       <RootContent fontsLoaded={fontsLoaded} />
-      {fontsLoaded && !loading && !user && !onboardingCompleted && (
+      {fontsLoaded && onboardingReady && !loading && !user && !onboardingCompleted && (
         <OnboardingModal visible={true} onClose={handleOnboardingComplete} />
       )}
     </>

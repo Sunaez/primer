@@ -1,5 +1,3 @@
-// /components/social/activity/ActivityColumn.tsx
-
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
 import {
@@ -8,45 +6,38 @@ import {
   arrayUnion,
   collection,
 } from 'firebase/firestore';
+
 import { db } from '@/components/firebaseConfig';
 import { useUserContext } from '@/context/UserContext';
 import ActivityCell, { Activity } from './ActivityCell';
-// Import your THEMES object to look up the correct theme.
 import THEMES from '@/constants/themes';
+import EmptyState from '@/components/ui/EmptyState';
 
 interface ActivityColumnProps {
   currentTheme: any;
   width: number;
 }
 
-const ActivityColumn: React.FC<ActivityColumnProps> = ({ currentTheme, width }) => {
+export default function ActivityColumn({ currentTheme, width }: ActivityColumnProps) {
   const { user } = useUserContext();
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-
-  // Store activities per user UID.
+  const [loading, setLoading] = useState(true);
   const activityMapRef = useRef<{ [uid: string]: Activity[] }>({});
-  // Track unsubscribe functions to clean up.
   const unsubscribeRefs = useRef<(() => void)[]>([]);
 
-  // Merge current user's activities and friend activities where the current user is a recipient.
   const updateActivitiesState = (currentUid: string) => {
     const ownActivities = activityMapRef.current[currentUid] || [];
     const friendActivities = Object.entries(activityMapRef.current)
       .filter(([uid]) => uid !== currentUid)
-      .flatMap(([, acts]) => acts)
-      .filter(act => act.content.recipients.includes(currentUid));
+      .flatMap(([, entries]) => entries)
+      .filter((entry) => entry.content.recipients.includes(currentUid));
 
-    // Combine all activities and sort them descending by timestamp.
     const merged = [...ownActivities, ...friendActivities].sort((a, b) => {
-      const timeA = a.content.timestamp?.toDate
-        ? a.content.timestamp.toDate().getTime()
-        : 0;
-      const timeB = b.content.timestamp?.toDate
-        ? b.content.timestamp.toDate().getTime()
-        : 0;
+      const timeA = a.content.timestamp?.toDate ? a.content.timestamp.toDate().getTime() : 0;
+      const timeB = b.content.timestamp?.toDate ? b.content.timestamp.toDate().getTime() : 0;
       return timeB - timeA;
     });
+
     setActivities(merged);
     setLoading(false);
   };
@@ -54,120 +45,140 @@ const ActivityColumn: React.FC<ActivityColumnProps> = ({ currentTheme, width }) 
   useEffect(() => {
     if (!user) return;
     const currentUid = user.uid;
-    // Get the current user's ID along with any friend IDs.
     const idsToRead = [currentUid, ...(user.friends?.friends || [])];
-    console.log('Subscribing to Activity for IDs:', idsToRead);
 
-    idsToRead.forEach(uid => {
+    idsToRead.forEach((uid) => {
       const colRef = collection(db, 'Activity', uid, 'Activity');
       const unsubscribe = onSnapshot(
         colRef,
-        snapshot => {
-          const acts: Activity[] = snapshot.docs.map(docSnap => ({
+        (snapshot) => {
+          const entries: Activity[] = snapshot.docs.map((docSnap) => ({
             id: docSnap.id,
             ref: docSnap.ref,
             ...docSnap.data(),
           })) as Activity[];
-          activityMapRef.current[uid] = acts;
+          activityMapRef.current[uid] = entries;
           updateActivitiesState(currentUid);
         },
-        error => {
+        (error) => {
           console.error(`Error fetching activities for uid ${uid}:`, error);
         }
       );
+
       unsubscribeRefs.current.push(unsubscribe);
     });
 
     return () => {
-      unsubscribeRefs.current.forEach(unsub => unsub());
+      unsubscribeRefs.current.forEach((unsubscribe) => unsubscribe());
       unsubscribeRefs.current = [];
       activityMapRef.current = {};
     };
   }, [user]);
 
-  // Handler: Add reaction to an activity.
   const handleAddReaction = async (activity: Activity, emoji: string) => {
     if (!activity.ref) return;
     try {
       await updateDoc(activity.ref, {
         reactions: arrayUnion({ userId: user?.uid, emoji, timestamp: new Date() }),
       });
-      console.log('Reaction added for activity', activity.id);
     } catch (error) {
       console.error('Error adding reaction:', error);
     }
   };
 
-  // Handler: Send a comment on an activity.
   const handleSendComment = async (activity: Activity, text: string) => {
     if (!activity.ref) return;
     try {
       await updateDoc(activity.ref, {
         comments: arrayUnion({ userId: user?.uid, text, timestamp: new Date() }),
       });
-      console.log('Comment added for activity', activity.id);
     } catch (error) {
       console.error('Error adding comment:', error);
     }
   };
 
   return (
-    <View style={[styles.container, { width, backgroundColor: currentTheme.background }]}>
-      <Text style={[styles.header, { color: currentTheme.text }]}>Activity</Text>
-      {loading ? (
-        <Text style={[styles.message, { color: currentTheme.text }]}>
-          Loading activities...
+    <View style={[styles.container, { width }]}>
+      <View style={styles.header}>
+        <Text style={[styles.headerTitle, { color: currentTheme.text }]}>Activity feed</Text>
+        <Text style={[styles.headerDescription, { color: currentTheme.text }]}>
+          Streaks, score pushes, and moments worth reacting to.
         </Text>
+      </View>
+
+      {loading ? (
+        <View
+          style={[
+            styles.loadingCard,
+            { backgroundColor: currentTheme.surface, borderColor: currentTheme.border || currentTheme.divider },
+          ]}
+        >
+          <Text style={[styles.loadingText, { color: currentTheme.text }]}>Loading activity...</Text>
+        </View>
       ) : activities.length > 0 ? (
         <FlatList
           data={activities}
-          keyExtractor={item => item.id}
+          keyExtractor={(item) => item.id}
           renderItem={({ item }) => {
-            // Use a type cast to access the sender property since it's not in the official type.
             const senderObj = (item.content as any)?.sender?.[0];
             const activityThemeKey = senderObj?.theme as keyof typeof THEMES;
             const activityTheme =
-              activityThemeKey && THEMES[activityThemeKey]
-                ? THEMES[activityThemeKey]
-                : currentTheme;
+              activityThemeKey && THEMES[activityThemeKey] ? THEMES[activityThemeKey] : currentTheme;
 
             return (
               <ActivityCell
                 activity={item}
-                // Pass the theme from the activity if it exists, otherwise use the current theme.
                 currentTheme={activityTheme}
                 onSendComment={handleSendComment}
                 onAddReaction={handleAddReaction}
               />
             );
           }}
+          showsVerticalScrollIndicator={false}
         />
       ) : (
-        <Text style={[styles.message, { color: currentTheme.text }]}>
-          No activities found :(
-        </Text>
+        <EmptyState
+          title="No activity yet"
+          description="When you and your friends post streaks or fresh scores, the feed will start to fill up here."
+          theme={{
+            surface: currentTheme.surface,
+            text: currentTheme.text,
+            border: currentTheme.border || currentTheme.divider,
+          }}
+          accentColor={currentTheme.primary}
+          icon="notifications-outline"
+        />
       )}
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    borderRightWidth: 1,
-    borderRightColor: '#444',
     flex: 1,
   },
   header: {
-    fontSize: 20,
-    fontFamily: 'Parkinsans',
-    fontWeight: 'bold',
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  message: {
-    fontSize: 16,
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    fontFamily: 'Parkinsans',
+  },
+  headerDescription: {
+    marginTop: 6,
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.78,
+    fontFamily: 'Parkinsans',
+  },
+  loadingCard: {
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: 20,
+  },
+  loadingText: {
+    fontSize: 14,
     fontFamily: 'Parkinsans',
   },
 });
-
-export default ActivityColumn;

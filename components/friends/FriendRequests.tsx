@@ -1,7 +1,9 @@
-import React from "react";
-import { View, Text, Image, StyleSheet } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
-import OtherUser from "@/components/OtherUser";
+import React from 'react';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
+
+import OtherUser from '@/components/OtherUser';
+import EmptyState from '@/components/ui/EmptyState';
 
 interface FriendRequestsProps {
   friendRequests: any[];
@@ -13,13 +15,17 @@ interface FriendRequestsProps {
   onCancel: (uid: string) => void;
 }
 
-/**
- * FriendRequests:
- * • Displays incoming and outgoing friend requests.
- * • Each request is rendered with its full model (username, bannerColor, theme, photoURL).
- * • The action callbacks (onAccept, onReject, onBlock, onCancel) must update only the
- *   friend requests data in the database, never affecting the current user’s profile.
- */
+function SectionTitle({ title, count, color }: { title: string; count: number; color: string }) {
+  return (
+    <View style={styles.sectionTitleRow}>
+      <Text style={[styles.sectionTitle, { color }]}>{title}</Text>
+      <View style={styles.sectionCountPill}>
+        <Text style={styles.sectionCountText}>{count}</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function FriendRequests({
   friendRequests,
   outgoingRequests,
@@ -29,104 +35,124 @@ export default function FriendRequests({
   onBlock,
   onCancel,
 }: FriendRequestsProps) {
-  // Fallback screen if there are no friend requests
   if (friendRequests.length === 0 && outgoingRequests.length === 0) {
     return (
-      <View style={styles.fallbackContainer}>
-        <Text style={[styles.header, { color: currentTheme.text }]}>Requests</Text>
-        <Image
-          source={require("@/assets/images/shrug_emoji.png")}
-          style={styles.fallbackImage}
-          resizeMode="contain"
-        />
-        <Text style={[styles.fallbackText, { color: currentTheme.text }]}>
-          Aint nothing here yet
-        </Text>
-      </View>
+      <EmptyState
+        title="No pending requests"
+        description="When someone reaches out, incoming and outgoing requests will land here so you can sort them quickly."
+        theme={currentTheme}
+        accentColor={currentTheme.social}
+        icon="mail-open-outline"
+      />
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={[styles.sectionHeader, { color: currentTheme.text }]}>
-        Incoming Requests
-      </Text>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      <SectionTitle title="Incoming" count={friendRequests.length} color={currentTheme.text} />
       {friendRequests.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: currentTheme.text }]}>
-            No incoming friend requests
+        <View
+          style={[
+            styles.inlineEmpty,
+            { backgroundColor: currentTheme.surface, borderColor: currentTheme.border },
+          ]}
+        >
+          <Text style={[styles.inlineEmptyText, { color: currentTheme.text }]}>
+            Nothing to approve right now.
           </Text>
         </View>
       ) : (
-        friendRequests.map((req, index) => (
-          <Animated.View key={req.uid} entering={FadeIn.delay(index * 50)}>
+        friendRequests.map((request, index) => (
+          <Animated.View key={request.uid} entering={FadeIn.delay(index * 60)}>
             <OtherUser
-              username={req.username}
-              bannerColor={req.bannerColor}
-              theme={req.theme}
-              photoURL={req.photoURL}
-              // Callback functions here update only the friend requests data
-              onAccept={() => onAccept(req.uid)}
-              onReject={() => onReject(req.uid)}
-              onBlock={() => onBlock(req.uid)}
+              username={request.username}
+              bannerColor={request.bannerColor}
+              theme={request.theme}
+              photoURL={request.photoURL}
+              onAccept={() => onAccept(request.uid)}
+              onReject={() => onReject(request.uid)}
+              onBlock={() => onBlock(request.uid)}
             />
           </Animated.View>
         ))
       )}
-      <Text style={[styles.sectionHeader, { color: currentTheme.text }]}>
-        Outgoing Requests
-      </Text>
+
+      <SectionTitle title="Outgoing" count={outgoingRequests.length} color={currentTheme.text} />
       {outgoingRequests.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, { color: currentTheme.text }]}>
-            No outgoing friend requests
+        <View
+          style={[
+            styles.inlineEmpty,
+            { backgroundColor: currentTheme.surface, borderColor: currentTheme.border },
+          ]}
+        >
+          <Text style={[styles.inlineEmptyText, { color: currentTheme.text }]}>
+            No active invitations.
           </Text>
         </View>
       ) : (
-        outgoingRequests.map((req, index) => (
-          <Animated.View key={req.uid} entering={FadeIn.delay(index * 50)}>
+        outgoingRequests.map((request, index) => (
+          <Animated.View key={request.uid} entering={FadeIn.delay(index * 60)}>
             <OtherUser
-              username={req.username}
-              bannerColor={req.bannerColor}
-              theme={req.theme}
-              photoURL={req.photoURL}
-              // onCancel here should update the outgoing requests only
-              onCancel={() => onCancel(req.uid)}
+              username={request.username}
+              bannerColor={request.bannerColor}
+              theme={request.theme}
+              photoURL={request.photoURL}
+              onCancel={() => onCancel(request.uid)}
             />
           </Animated.View>
         ))
       )}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 8,
-  },
-  sectionHeader: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginVertical: 8,
-  },
-  emptyContainer: { alignItems: "center", marginTop: 20 },
-  emptyText: { fontSize: 16, textAlign: "center" },
-  fallbackContainer: {
+  container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 16,
   },
-  fallbackImage: {
-    width: 120,
-    height: 120,
-    marginVertical: 16,
+  content: {
+    paddingBottom: 8,
   },
-  fallbackText: {
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+    marginTop: 4,
+  },
+  sectionTitle: {
     fontSize: 18,
-    textAlign: "center",
+    fontWeight: '700',
+    fontFamily: 'Parkinsans',
+  },
+  sectionCountPill: {
+    minWidth: 28,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#111827',
+    alignItems: 'center',
+  },
+  sectionCountText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: 'Parkinsans',
+  },
+  inlineEmpty: {
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    marginBottom: 18,
+  },
+  inlineEmptyText: {
+    fontSize: 14,
+    opacity: 0.8,
+    fontFamily: 'Parkinsans',
   },
 });

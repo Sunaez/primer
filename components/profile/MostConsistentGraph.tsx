@@ -110,7 +110,7 @@ const MostConsistentGraph: React.FC<MostConsistentGraphProps> = ({ chartWidth, c
             width={chartWidth}
             height={chartHeight}
             currentTheme={currentTheme}
-            fontFamily="Parkisans"
+            fontFamily="Parkinsans"
           />
         </>
       ) : (

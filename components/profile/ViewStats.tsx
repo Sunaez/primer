@@ -1,19 +1,19 @@
-// /components/profile/ViewStats.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   SafeAreaView,
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
 } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { doc, getDoc } from 'firebase/firestore';
+
 import { useUserContext, useThemeContext } from '@/context/UserContext';
 import { db } from '@/components/firebaseConfig';
-import { doc, getDoc } from 'firebase/firestore';
 import { GAMES } from '@/constants/games';
 import THEMES from '@/constants/themes';
 
@@ -29,9 +29,29 @@ interface GameStats {
   updatedAt?: any;
 }
 
-const FADE_OUT_DURATION = 300; // Duration in ms for the FadeOut animation
+function StatTile({
+  label,
+  value,
+  currentTheme,
+}: {
+  label: string;
+  value: string;
+  currentTheme: any;
+}) {
+  return (
+    <View
+      style={[
+        styles.statTile,
+        { backgroundColor: currentTheme.surface, borderColor: currentTheme.border },
+      ]}
+    >
+      <Text style={[styles.statLabel, { color: currentTheme.text }]}>{label}</Text>
+      <Text style={[styles.statValue, { color: currentTheme.text }]}>{value}</Text>
+    </View>
+  );
+}
 
-const ViewStats: React.FC<ViewStatsProps> = ({ visible, onClose }) => {
+export default function ViewStats({ visible, onClose }: ViewStatsProps) {
   const { user } = useUserContext();
   const { themeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
@@ -39,96 +59,71 @@ const ViewStats: React.FC<ViewStatsProps> = ({ visible, onClose }) => {
   const [selectedGameId, setSelectedGameId] = useState(GAMES[0].id);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [stats, setStats] = useState<GameStats | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  // State to control whether the exit animation should be applied.
-  const [shouldAnimateExit, setShouldAnimateExit] = useState(true);
-
-  // When the modal becomes hidden, disable the exit animation so it only plays once.
-  useEffect(() => {
-    if (!visible && shouldAnimateExit) {
-      setTimeout(() => {
-        setShouldAnimateExit(false);
-      }, FADE_OUT_DURATION);
-    }
-  }, [visible, shouldAnimateExit]);
-
-  // Load statistics when the selected game or user changes.
   useEffect(() => {
     async function loadStats() {
       if (!user) return;
-      setLoading(true);
       try {
-        const statsDocRef = doc(db, "Statistics", user.uid, "games", selectedGameId);
+        const statsDocRef = doc(db, 'Statistics', user.uid, 'games', selectedGameId);
         const docSnap = await getDoc(statsDocRef);
-        if (docSnap.exists()) {
-          setStats(docSnap.data());
-        } else {
-          setStats({});
-        }
+        setStats(docSnap.exists() ? docSnap.data() : {});
       } catch (error) {
-        console.error("Error loading statistics:", error);
+        console.error('Error loading statistics:', error);
         setStats(null);
       }
-      setLoading(false);
     }
+
     loadStats();
   }, [selectedGameId, user]);
 
+  const selectedGame = GAMES.find((game) => game.id === selectedGameId);
+
   return (
     <Modal visible={visible} transparent animationType="fade">
-      <Animated.View
-        style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}
-        entering={FadeIn}
-        exiting={shouldAnimateExit ? FadeOut : undefined}
-      >
+      <Animated.View style={styles.overlay} entering={FadeIn} exiting={FadeOut}>
         <SafeAreaView style={styles.safeArea}>
           <View
             style={[
               styles.modalContainer,
-              {
-                backgroundColor: currentTheme.background,
-                borderColor: currentTheme.border,
-              },
+              { backgroundColor: currentTheme.background, borderColor: currentTheme.border },
             ]}
           >
-            {/* Header */}
             <View style={styles.header}>
-              <Text style={[styles.headerTitle, { color: currentTheme.text }]}>
-                Your Statistics
-              </Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Ionicons name="close" size={28} color={currentTheme.text} />
-              </TouchableOpacity>
+              <View>
+                <Text style={[styles.headerTitle, { color: currentTheme.text }]}>Statistics</Text>
+                <Text style={[styles.headerDescription, { color: currentTheme.text }]}>
+                  A cleaner read on your results for each game.
+                </Text>
+              </View>
+              <Pressable onPress={onClose} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color={currentTheme.text} />
+              </Pressable>
             </View>
 
-            {/* Custom Dropdown */}
-            <Text style={[styles.label, { color: currentTheme.text }]}>Select Game:</Text>
-            <TouchableOpacity
+            <Pressable
               style={[
-                styles.dropdownContainer,
+                styles.dropdownTrigger,
                 {
                   borderColor: currentTheme.border,
-                  backgroundColor: currentTheme.inputBackground,
+                  backgroundColor: currentTheme.surface,
                 },
               ]}
               onPress={() => setDropdownOpen(!dropdownOpen)}
             >
-              <Text style={[styles.dropdownText, { color: currentTheme.text }]}>
-                {GAMES.find((game) => game.id === selectedGameId)?.title || "Select Game"}
+              <Text style={[styles.dropdownTriggerText, { color: currentTheme.text }]}>
+                {selectedGame?.title || 'Select game'}
               </Text>
               <Ionicons
-                name={dropdownOpen ? "chevron-up-outline" : "chevron-down-outline"}
-                size={20}
+                name={dropdownOpen ? 'chevron-up-outline' : 'chevron-down-outline'}
+                size={18}
                 color={currentTheme.text}
               />
-            </TouchableOpacity>
+            </Pressable>
 
-            {/* Dropdown Options */}
-            {dropdownOpen && (
+            {dropdownOpen ? (
               <View
                 style={[
-                  styles.dropdownOptions,
+                  styles.dropdownMenu,
                   {
                     backgroundColor: currentTheme.surface,
                     borderColor: currentTheme.border,
@@ -136,7 +131,7 @@ const ViewStats: React.FC<ViewStatsProps> = ({ visible, onClose }) => {
                 ]}
               >
                 {GAMES.map((game) => (
-                  <TouchableOpacity
+                  <Pressable
                     key={game.id}
                     style={styles.dropdownOption}
                     onPress={() => {
@@ -147,115 +142,143 @@ const ViewStats: React.FC<ViewStatsProps> = ({ visible, onClose }) => {
                     <Text style={[styles.dropdownOptionText, { color: currentTheme.text }]}>
                       {game.title}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 ))}
               </View>
-            )}
+            ) : null}
 
-            {/* Statistics Display */}
-            <View style={styles.statsContainer}>
-              <ScrollView contentContainerStyle={styles.scrollContainer}>
-                <Text style={[styles.statText, { color: currentTheme.text }]}>
-                  Best Score Index: {stats?.bestScoreIndex ?? 'N/A'}
-                </Text>
-                <Text style={[styles.statText, { color: currentTheme.text }]}>
-                  Daily Best Score Index: {stats?.dailyBestScoreIndex ?? 'N/A'}
-                </Text>
-                <Text style={[styles.statText, { color: currentTheme.text }]}>
-                  Total Plays: {stats?.totalPlays ?? 'N/A'}
-                </Text>
-                <Text style={[styles.statText, { color: currentTheme.text }]}>
-                  Last Updated:{" "}
-                  {stats && stats.updatedAt
+            <ScrollView contentContainerStyle={styles.statsGrid} showsVerticalScrollIndicator={false}>
+              <StatTile
+                label="Best score"
+                value={stats?.bestScoreIndex != null ? String(stats.bestScoreIndex) : 'No data'}
+                currentTheme={currentTheme}
+              />
+              <StatTile
+                label="Daily best"
+                value={
+                  stats?.dailyBestScoreIndex != null
+                    ? String(stats.dailyBestScoreIndex)
+                    : 'No data'
+                }
+                currentTheme={currentTheme}
+              />
+              <StatTile
+                label="Total plays"
+                value={stats?.totalPlays != null ? String(stats.totalPlays) : 'No data'}
+                currentTheme={currentTheme}
+              />
+              <StatTile
+                label="Last updated"
+                value={
+                  stats?.updatedAt?.toDate
                     ? stats.updatedAt.toDate().toLocaleString()
-                    : 'N/A'}
-                </Text>
-              </ScrollView>
-            </View>
+                    : 'No data'
+                }
+                currentTheme={currentTheme}
+              />
+            </ScrollView>
           </View>
         </SafeAreaView>
       </Animated.View>
     </Modal>
   );
-};
-
-export default ViewStats;
+}
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    width: '100%',
-    alignItems: "center",
-    justifyContent: "center",
-  },
   overlay: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: 'rgba(8, 10, 16, 0.72)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 18,
+  },
+  safeArea: {
+    width: '100%',
+    alignItems: 'center',
   },
   modalContainer: {
-    width: "90%",
-    maxHeight: "80%",
-    borderRadius: 15,
-    padding: 20,
+    width: '100%',
+    maxWidth: 680,
     borderWidth: 1,
-    elevation: 10,
+    borderRadius: 28,
+    padding: 22,
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 16,
+    marginBottom: 18,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
+    fontSize: 24,
+    fontWeight: '700',
+    fontFamily: 'Parkinsans',
+  },
+  headerDescription: {
+    marginTop: 6,
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.8,
+    fontFamily: 'Parkinsans',
   },
   closeButton: {
-    padding: 4,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  label: {
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  dropdownContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
+  dropdownTrigger: {
+    minHeight: 54,
     borderWidth: 1,
+    borderRadius: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
     marginBottom: 12,
   },
-  dropdownText: {
-    fontSize: 16,
-    fontWeight: "500",
+  dropdownTriggerText: {
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: 'Parkinsans',
   },
-  dropdownOptions: {
+  dropdownMenu: {
     borderWidth: 1,
-    borderRadius: 8,
-    overflow: "hidden",
-    marginBottom: 12,
+    borderRadius: 18,
+    overflow: 'hidden',
+    marginBottom: 16,
   },
   dropdownOption: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "transparent",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   dropdownOptionText: {
+    fontSize: 15,
+    fontFamily: 'Parkinsans',
+  },
+  statsGrid: {
+    gap: 12,
+  },
+  statTile: {
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  statLabel: {
+    fontSize: 12,
+    opacity: 0.7,
+    textTransform: 'uppercase',
+    letterSpacing: 1.1,
+    fontFamily: 'Parkinsans',
+  },
+  statValue: {
+    marginTop: 8,
     fontSize: 16,
-  },
-  statsContainer: {
-    maxHeight: 200,
-    width: '100%',
-  },
-  scrollContainer: {
-    paddingBottom: 20,
-  },
-  statText: {
-    fontSize: 16,
-    marginBottom: 8,
+    lineHeight: 22,
+    fontWeight: '700',
+    fontFamily: 'Parkinsans',
   },
 });

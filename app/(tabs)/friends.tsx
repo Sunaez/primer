@@ -1,18 +1,19 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Image,
   Alert,
-} from "react-native";
-import Ionicons from "@expo/vector-icons/Ionicons";
+  Pressable,
+} from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-} from "react-native-reanimated";
+} from 'react-native-reanimated';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   doc,
   onSnapshot,
@@ -22,91 +23,104 @@ import {
   updateDoc,
   arrayUnion,
   arrayRemove,
-} from "firebase/firestore";
-import { auth, db } from "@/components/firebaseConfig";
-import { useUserContext } from "@/context/UserContext";
-import THEMES from "@/constants/themes";
-import FriendsList from "@/components/friends/FriendsList";
-import FriendRequests from "@/components/friends/FriendRequests";
-import AddFriends from "@/components/friends/AddFriends";
+} from 'firebase/firestore';
 
-type TabType = "friends" | "requests" | "add";
+import { auth, db } from '@/components/firebaseConfig';
+import { useUserContext } from '@/context/UserContext';
+import THEMES from '@/constants/themes';
+import FriendsList from '@/components/friends/FriendsList';
+import FriendRequests from '@/components/friends/FriendRequests';
+import AddFriends from '@/components/friends/AddFriends';
+import ScreenHeader from '@/components/ui/ScreenHeader';
+import MetricPill from '@/components/ui/MetricPill';
+import EmptyState from '@/components/ui/EmptyState';
+
+type TabType = 'friends' | 'requests' | 'add';
+
+const TAB_META: Record<
+  TabType,
+  { label: string; icon: keyof typeof Ionicons.glyphMap; description: string }
+> = {
+  friends: {
+    label: 'Friends',
+    icon: 'people-outline',
+    description: 'Your current circle and quick actions.',
+  },
+  requests: {
+    label: 'Requests',
+    icon: 'mail-outline',
+    description: 'Incoming approvals and outgoing invites.',
+  },
+  add: {
+    label: 'Discover',
+    icon: 'person-add-outline',
+    description: 'Search and invite new people.',
+  },
+};
 
 export default function FriendsTab() {
   const { user } = useUserContext();
-  const currentTheme = THEMES[user ? user.theme : "Dark"];
+  const currentTheme = THEMES[user ? user.theme : 'Dark'];
 
-  // Fallback if no user is logged in.
   if (!user) {
     return (
-      <View
-        style={[styles.fallbackContainer, { backgroundColor: currentTheme.background }]}
-      >
-        <Image
-          source={require("@/assets/images/tear_emoji.png")}
-          style={styles.fallbackImage}
-          resizeMode="contain"
+      <View style={[styles.fallbackShell, { backgroundColor: currentTheme.background }]}>
+        <EmptyState
+          title="Friends need an account"
+          description="Sign in from the Profile tab to add people, accept requests, and compare progress."
+          theme={currentTheme}
+          accentColor={currentTheme.friends}
+          imageSource={require('@/assets/images/tear_emoji.png')}
         />
-        <Text style={[styles.fallbackText, { color: currentTheme.text }]}>
-          Me trying to add friends but I don't have an account
-        </Text>
       </View>
     );
   }
 
-  // Main states and pagination.
-  const [currentTab, setCurrentTab] = useState<TabType>("friends");
+  const [currentTab, setCurrentTab] = useState<TabType>('friends');
   const [friends, setFriends] = useState<any[]>([]);
   const [friendRequests, setFriendRequests] = useState<any[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
   const [sentRequests, setSentRequests] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const currentUser = auth.currentUser;
-  
-  const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 5;
 
-  // Animate tab content on change.
-  const tabAnim = useSharedValue(0);
+  const tabAnim = useSharedValue(1);
   useEffect(() => {
-    tabAnim.value = 0;
-    tabAnim.value = withTiming(1, { duration: 300 });
-  }, [currentTab]);
+    tabAnim.value = 0.9;
+    tabAnim.value = withTiming(1, { duration: 240 });
+  }, [currentTab, tabAnim]);
+
   const animatedTabStyle = useAnimatedStyle(() => ({
     opacity: tabAnim.value,
-    transform: [{ translateY: (1 - tabAnim.value) * 20 }],
+    transform: [{ translateY: (1 - tabAnim.value) * 18 }],
   }));
 
-  // Real-time subscription to the current user's profile.
   useEffect(() => {
     if (!currentUser) return;
-    const profileRef = doc(db, "profile", currentUser.uid);
+    const profileRef = doc(db, 'profile', currentUser.uid);
     const unsubscribe = onSnapshot(profileRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        const friendIds: string[] = data.friends?.friends || [];
-        const incomingIds: string[] = data.friends?.friendRequests || [];
+      if (!docSnap.exists()) return;
+      const data = docSnap.data();
+      const friendIds: string[] = data.friends?.friends || [];
+      const incomingIds: string[] = data.friends?.friendRequests || [];
 
-        Promise.all(friendIds.map((uid) => fetchUserProfile(uid))).then(
-          (results) => {
-            setFriends(results.filter((u) => u !== null));
-          }
-        );
-        Promise.all(incomingIds.map((uid) => fetchUserProfile(uid))).then(
-          (results) => {
-            setFriendRequests(results.filter((u) => u !== null));
-          }
-        );
-      }
+      Promise.all(friendIds.map((uid) => fetchUserProfile(uid))).then((results) => {
+        setFriends(results.filter((entry) => entry !== null));
+      });
+      Promise.all(incomingIds.map((uid) => fetchUserProfile(uid))).then((results) => {
+        setFriendRequests(results.filter((entry) => entry !== null));
+      });
     });
+
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Real-time subscription to all users (for "Add Friends").
   useEffect(() => {
     if (!currentUser) return;
-    const usersRef = collection(db, "profile");
+    const usersRef = collection(db, 'profile');
     const unsubscribe = onSnapshot(usersRef, (snapshot) => {
       const usersArray: any[] = [];
       snapshot.forEach((docSnap) => {
@@ -114,22 +128,20 @@ export default function FriendsTab() {
           usersArray.push({ uid: docSnap.id, ...docSnap.data() });
         }
       });
-      usersArray.sort((a, b) =>
-        (a?.username || "").localeCompare(b?.username || "")
-      );
+      usersArray.sort((a, b) => (a?.username || '').localeCompare(b?.username || ''));
       setAllUsers(usersArray);
     });
+
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Real-time subscription for outgoing friend requests.
   useEffect(() => {
     if (!currentUser) return;
-    const q = query(
-      collection(db, "profile"),
-      where("friends.friendRequests", "array-contains", currentUser.uid)
+    const outgoingQuery = query(
+      collection(db, 'profile'),
+      where('friends.friendRequests', 'array-contains', currentUser.uid)
     );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = onSnapshot(outgoingQuery, (snapshot) => {
       const outgoing: any[] = [];
       snapshot.forEach((docSnap) => {
         if (docSnap.id !== currentUser.uid) {
@@ -138,177 +150,235 @@ export default function FriendsTab() {
       });
       setOutgoingRequests(outgoing);
     });
+
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Helper: one-off fetch of a user's profile.
   const fetchUserProfile = async (uid: string) => {
     return new Promise<any>((resolve) => {
-      const unsub = onSnapshot(doc(db, "profile", uid), (docSnap) => {
+      const unsubscribe = onSnapshot(doc(db, 'profile', uid), (docSnap) => {
         if (docSnap.exists()) {
           resolve({ uid, ...docSnap.data() });
         } else {
           resolve(null);
         }
-        unsub();
+        unsubscribe();
       });
     });
   };
 
-  // Filter for the "Add Friends" tab.
   const filteredUsers = allUsers.filter(
-    (user) =>
-      (user?.username || "")
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) &&
-      !friends.some((friend) => friend.uid === user.uid) &&
-      !friendRequests.some((req) => req.uid === user.uid)
+    (entry) =>
+      (entry?.username || '').toLowerCase().includes(searchTerm.toLowerCase()) &&
+      !friends.some((friend) => friend.uid === entry.uid) &&
+      !friendRequests.some((request) => request.uid === entry.uid)
   );
+
   const totalPages = Math.ceil(filteredUsers.length / pageSize);
   const paginatedUsers = filteredUsers.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
 
-  // Firestore update functions.
   const handleRemoveFriend = async (friendUid: string) => {
     if (!currentUser) return;
     try {
-      const currentRef = doc(db, "profile", currentUser.uid);
-      const friendRef = doc(db, "profile", friendUid);
-      await updateDoc(currentRef, { "friends.friends": arrayRemove(friendUid) });
-      await updateDoc(friendRef, { "friends.friends": arrayRemove(currentUser.uid) });
-      setFriends(friends.filter((u) => u.uid !== friendUid));
-      Alert.alert("Friend Removed", "The friend has been removed from both profiles.");
+      const currentRef = doc(db, 'profile', currentUser.uid);
+      const friendRef = doc(db, 'profile', friendUid);
+      await updateDoc(currentRef, { 'friends.friends': arrayRemove(friendUid) });
+      await updateDoc(friendRef, { 'friends.friends': arrayRemove(currentUser.uid) });
+      setFriends(friends.filter((entry) => entry.uid !== friendUid));
+      Alert.alert('Friend removed', 'That person has been removed from your circle.');
     } catch (error: any) {
-      Alert.alert("Error", error.message || "Could not remove friend.");
+      Alert.alert('Error', error.message || 'Could not remove friend.');
     }
   };
 
   const handleBlockFriend = async (friendUid: string) => {
     if (!currentUser) return;
     try {
-      const currentRef = doc(db, "profile", currentUser.uid);
-      const friendRef = doc(db, "profile", friendUid);
+      const currentRef = doc(db, 'profile', currentUser.uid);
+      const friendRef = doc(db, 'profile', friendUid);
       await updateDoc(currentRef, {
-        "friends.friends": arrayRemove(friendUid),
-        "friends.blocked": arrayUnion(friendUid),
+        'friends.friends': arrayRemove(friendUid),
+        'friends.blocked': arrayUnion(friendUid),
       });
       await updateDoc(friendRef, {
-        "friends.friends": arrayRemove(currentUser.uid),
-        "friends.blocked": arrayUnion(currentUser.uid),
+        'friends.friends': arrayRemove(currentUser.uid),
+        'friends.blocked': arrayUnion(currentUser.uid),
       });
-      setFriends(friends.filter((u) => u.uid !== friendUid));
-      Alert.alert("Friend Blocked", "The friend has been blocked from both profiles.");
+      setFriends(friends.filter((entry) => entry.uid !== friendUid));
+      Alert.alert('Friend blocked', 'That user has been removed and blocked.');
     } catch (error: any) {
-      Alert.alert("Error", error.message || "Could not block friend.");
+      Alert.alert('Error', error.message || 'Could not block friend.');
     }
   };
 
   const handleAcceptFriendRequest = async (requestUid: string) => {
     if (!currentUser) return;
     try {
-      const currentRef = doc(db, "profile", currentUser.uid);
-      const acceptedRef = doc(db, "profile", requestUid);
+      const currentRef = doc(db, 'profile', currentUser.uid);
+      const acceptedRef = doc(db, 'profile', requestUid);
       await updateDoc(currentRef, {
-        "friends.friends": arrayUnion(requestUid),
-        "friends.friendRequests": arrayRemove(requestUid),
+        'friends.friends': arrayUnion(requestUid),
+        'friends.friendRequests': arrayRemove(requestUid),
       });
       await updateDoc(acceptedRef, {
-        "friends.friends": arrayUnion(currentUser.uid),
+        'friends.friends': arrayUnion(currentUser.uid),
       });
-      const acceptedUser = friendRequests.find((u) => u.uid === requestUid);
-      setFriendRequests(friendRequests.filter((u) => u.uid !== requestUid));
+      const acceptedUser = friendRequests.find((entry) => entry.uid === requestUid);
+      setFriendRequests(friendRequests.filter((entry) => entry.uid !== requestUid));
       if (acceptedUser) {
         setFriends([...friends, acceptedUser]);
       }
-      Alert.alert("Friend Request Accepted", "You are now friends.");
+      Alert.alert('Request accepted', 'You are now connected.');
     } catch (error: any) {
-      Alert.alert("Error", error.message || "Could not accept friend request.");
+      Alert.alert('Error', error.message || 'Could not accept friend request.');
     }
   };
 
   const handleRejectFriendRequest = async (requestUid: string) => {
     if (!currentUser) return;
     try {
-      const currentRef = doc(db, "profile", currentUser.uid);
-      await updateDoc(currentRef, { "friends.friendRequests": arrayRemove(requestUid) });
-      setFriendRequests(friendRequests.filter((u) => u.uid !== requestUid));
-      Alert.alert("Friend Request Rejected", "The friend request has been rejected.");
+      const currentRef = doc(db, 'profile', currentUser.uid);
+      await updateDoc(currentRef, { 'friends.friendRequests': arrayRemove(requestUid) });
+      setFriendRequests(friendRequests.filter((entry) => entry.uid !== requestUid));
+      Alert.alert('Request rejected', 'The invitation has been removed.');
     } catch (error: any) {
-      Alert.alert("Error", error.message || "Could not reject friend request.");
+      Alert.alert('Error', error.message || 'Could not reject friend request.');
     }
   };
 
   const handleCancelFriendRequest = async (targetUid: string) => {
     if (!currentUser) return;
     try {
-      const targetRef = doc(db, "profile", targetUid);
-      await updateDoc(targetRef, { "friends.friendRequests": arrayRemove(currentUser.uid) });
-      setOutgoingRequests(outgoingRequests.filter((req) => req.uid !== targetUid));
-      Alert.alert("Request Canceled", "Your friend request has been canceled.");
+      const targetRef = doc(db, 'profile', targetUid);
+      await updateDoc(targetRef, {
+        'friends.friendRequests': arrayRemove(currentUser.uid),
+      });
+      setOutgoingRequests(outgoingRequests.filter((entry) => entry.uid !== targetUid));
+      Alert.alert('Request canceled', 'Your invitation has been canceled.');
     } catch (error: any) {
-      Alert.alert("Error", error.message || "Could not cancel friend request.");
+      Alert.alert('Error', error.message || 'Could not cancel friend request.');
     }
   };
 
   const handleSendFriendRequest = async (otherUid: string) => {
     if (!currentUser) return;
     try {
-      const otherRef = doc(db, "profile", otherUid);
-      await updateDoc(otherRef, { "friends.friendRequests": arrayUnion(currentUser.uid) });
+      const otherRef = doc(db, 'profile', otherUid);
+      await updateDoc(otherRef, {
+        'friends.friendRequests': arrayUnion(currentUser.uid),
+      });
       setSentRequests([...sentRequests, otherUid]);
-      Alert.alert("Request Sent", "Your friend request has been sent.");
+      Alert.alert('Request sent', 'Your invite is on the way.');
     } catch (error: any) {
-      Alert.alert("Error", error.message || "Could not send friend request.");
+      Alert.alert('Error', error.message || 'Could not send friend request.');
     }
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: currentTheme.text }]}>Friends</Text>
+    <View style={[styles.screen, { backgroundColor: currentTheme.background }]}>
+      <LinearGradient
+        colors={[currentTheme.friends, currentTheme.primary, currentTheme.surface]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.hero}
+      >
+        <ScreenHeader
+          eyebrow="Friends"
+          title="Keep your circle competitive, clean, and easy to manage."
+          description={TAB_META[currentTab].description}
+          accentColor="#fff"
+          textColor="#fff"
+          mutedColor="rgba(255,255,255,0.82)"
+        />
+
+        <View style={styles.heroMetrics}>
+          <MetricPill
+            icon="people-outline"
+            label="Friends"
+            value={friends.length.toString()}
+            textColor="#fff"
+            accentColor="rgba(0,0,0,0.24)"
+            backgroundColor="rgba(255,255,255,0.14)"
+          />
+          <MetricPill
+            icon="mail-open-outline"
+            label="Incoming"
+            value={friendRequests.length.toString()}
+            textColor="#fff"
+            accentColor="rgba(0,0,0,0.24)"
+            backgroundColor="rgba(255,255,255,0.14)"
+          />
+          <MetricPill
+            icon="paper-plane-outline"
+            label="Outgoing"
+            value={outgoingRequests.length.toString()}
+            textColor="#fff"
+            accentColor="rgba(0,0,0,0.24)"
+            backgroundColor="rgba(255,255,255,0.14)"
+          />
+        </View>
+      </LinearGradient>
+
+      <View
+        style={[
+          styles.tabRail,
+          { backgroundColor: currentTheme.surface, borderColor: currentTheme.border },
+        ]}
+      >
+        {(Object.keys(TAB_META) as TabType[]).map((tabKey) => {
+          const active = currentTab === tabKey;
+          return (
+            <Pressable
+              key={tabKey}
+              style={[
+                styles.tabButton,
+                {
+                  backgroundColor: active ? currentTheme.friends : 'transparent',
+                },
+              ]}
+              onPress={() => setCurrentTab(tabKey)}
+            >
+              <Ionicons
+                name={TAB_META[tabKey].icon}
+                size={16}
+                color={active ? '#fff' : currentTheme.text}
+              />
+              <Text
+                style={[
+                  styles.tabLabel,
+                  { color: active ? '#fff' : currentTheme.text },
+                ]}
+              >
+                {TAB_META[tabKey].label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
-      {/* Tabs */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tab, currentTab === "friends" && { borderBottomColor: currentTheme.primary }]}
-          onPress={() => setCurrentTab("friends")}
-        >
-          <Text style={[styles.tabText, { color: currentTheme.text }]}>Friends</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, currentTab === "requests" && { borderBottomColor: currentTheme.primary }]}
-          onPress={() => setCurrentTab("requests")}
-        >
-          <Text style={[styles.tabText, { color: currentTheme.text }]}>Friend Requests</Text>
-          {friendRequests.length > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{friendRequests.length}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, currentTab === "add" && { borderBottomColor: currentTheme.primary }]}
-          onPress={() => setCurrentTab("add")}
-        >
-          <Text style={[styles.tabText, { color: currentTheme.text }]}>Add Friends</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Animated Tab Content */}
-      <Animated.View style={[styles.listContainer, animatedTabStyle]}>
-        {currentTab === "friends" && (
+      <Animated.View
+        style={[
+          styles.contentCard,
+          {
+            backgroundColor: currentTheme.background,
+            borderColor: currentTheme.border,
+          },
+          animatedTabStyle,
+        ]}
+      >
+        {currentTab === 'friends' ? (
           <FriendsList
             friends={friends}
             currentTheme={currentTheme}
             onRemoveFriend={handleRemoveFriend}
             onBlockFriend={handleBlockFriend}
           />
-        )}
-        {currentTab === "requests" && (
+        ) : null}
+
+        {currentTab === 'requests' ? (
           <FriendRequests
             friendRequests={friendRequests}
             outgoingRequests={outgoingRequests}
@@ -318,8 +388,9 @@ export default function FriendsTab() {
             onBlock={handleBlockFriend}
             onCancel={handleCancelFriendRequest}
           />
-        )}
-        {currentTab === "add" && (
+        ) : null}
+
+        {currentTab === 'add' ? (
           <AddFriends
             filteredUsers={paginatedUsers}
             searchTerm={searchTerm}
@@ -334,85 +405,58 @@ export default function FriendsTab() {
             totalPages={totalPages}
             onPageChange={setCurrentPage}
           />
-        )}
+        ) : null}
       </Animated.View>
-
-      {/* Icon Key / Legend */}
-      <View style={styles.legendContainer}>
-        <View style={styles.legendItem}>
-          <Ionicons name="person-remove-outline" size={20} color="red" />
-          <Text style={[styles.legendText, { color: currentTheme.text }]}>Remove</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <Ionicons name="hand-left-outline" size={20} color="orange" />
-          <Text style={[styles.legendText, { color: currentTheme.text }]}>Block</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <Ionicons name="checkmark-outline" size={20} color="green" />
-          <Text style={[styles.legendText, { color: currentTheme.text }]}>Accept</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <Ionicons name="close-outline" size={20} color="red" />
-          <Text style={[styles.legendText, { color: currentTheme.text }]}>Reject</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <Ionicons name="person-add-outline" size={20} color="green" />
-          <Text style={[styles.legendText, { color: currentTheme.text }]}>Add</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <Ionicons name="paper-plane-outline" size={20} color="blue" />
-          <Text style={[styles.legendText, { color: currentTheme.text }]}>Request Sent</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <Ionicons name="close-circle-outline" size={20} color="purple" />
-          <Text style={[styles.legendText, { color: currentTheme.text }]}>Cancel Request</Text>
-        </View>
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  header: { flexDirection: "row", justifyContent: "center", marginBottom: 8 },
-  headerTitle: { fontSize: 24, fontWeight: "bold" },
-  tabContainer: {
-    flexDirection: "row",
-    marginBottom: 16,
-    justifyContent: "space-around",
-  },
-  tab: {
+  screen: {
     flex: 1,
-    paddingVertical: 8,
-    alignItems: "center",
-    borderBottomWidth: 2,
-    borderBottomColor: "transparent",
+    padding: 18,
+    gap: 16,
   },
-  tabText: { fontSize: 16 },
-  badge: {
-    backgroundColor: "red",
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    marginLeft: 4,
-  },
-  badgeText: { color: "#fff", fontSize: 12 },
-  listContainer: { flex: 1 },
-  legendContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: "#ccc",
-    paddingTop: 8,
-  },
-  legendItem: { flexDirection: "row", alignItems: "center" },
-  legendText: { marginLeft: 4, fontSize: 14 },
-  fallbackContainer: {
+  fallbackShell: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    padding: 18,
+  },
+  hero: {
+    borderRadius: 30,
+    padding: 22,
+    gap: 18,
+  },
+  heroMetrics: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  tabRail: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderRadius: 22,
+    padding: 6,
+    gap: 6,
+  },
+  tabButton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  tabLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: 'Parkinsans',
+  },
+  contentCard: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 28,
     padding: 16,
   },
-  fallbackImage: { width: 120, height: 120, marginBottom: 16 },
-  fallbackText: { fontSize: 18, textAlign: "center" },
 });

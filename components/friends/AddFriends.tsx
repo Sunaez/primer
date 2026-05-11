@@ -1,7 +1,17 @@
-import React from "react";
-import { View, Text, TextInput, FlatList, StyleSheet, TouchableOpacity } from "react-native";
-import Animated, { FadeIn } from "react-native-reanimated";
-import OtherUser from "@/components/OtherUser";
+import React from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  FlatList,
+  StyleSheet,
+  Pressable,
+} from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import Ionicons from '@expo/vector-icons/Ionicons';
+
+import OtherUser from '@/components/OtherUser';
+import EmptyState from '@/components/ui/EmptyState';
 
 interface AddFriendsProps {
   filteredUsers: any[];
@@ -15,14 +25,6 @@ interface AddFriendsProps {
   onPageChange: (page: number) => void;
 }
 
-/**
- * AddFriends:
- * • Renders a searchable list of users (using the full model including styling data) 
- *   so that the view appears exactly as designed.
- * • When a user is requested, the onSendRequest callback should update only the friend’s 
- *   portion of the database (e.g., by adding the uid to a "sent requests" list) 
- *   without affecting your overall profile or theme.
- */
 export default function AddFriends({
   filteredUsers,
   searchTerm,
@@ -36,83 +38,127 @@ export default function AddFriends({
 }: AddFriendsProps) {
   return (
     <View style={styles.container}>
-      <TextInput
+      <View
         style={[
-          styles.searchInput,
-          { borderColor: currentTheme.text, color: currentTheme.text }
+          styles.searchShell,
+          { backgroundColor: currentTheme.surface, borderColor: currentTheme.border },
         ]}
-        placeholder="Search users..."
-        placeholderTextColor={currentTheme.text}
-        value={searchTerm}
-        onChangeText={onChangeSearch}
-      />
-      <FlatList
-        data={filteredUsers}
-        keyExtractor={(item) => item.uid}
-        renderItem={({ item, index }) => (
-          <Animated.View entering={FadeIn.delay(index * 50)}>
-            <OtherUser
-              username={item.username}
-              bannerColor={item.bannerColor}
-              theme={item.theme}
-              photoURL={item.photoURL}
-              // onAdd triggers friend request update without affecting global profile
-              onAdd={() => onSendRequest(item.uid)}
-              requestSent={requestSent.includes(item.uid)}
-            />
-          </Animated.View>
-        )}
-      />
-      {totalPages > 1 && (
+      >
+        <Ionicons name="search-outline" size={18} color={currentTheme.text} />
+        <TextInput
+          style={[styles.searchInput, { color: currentTheme.text }]}
+          placeholder="Search usernames"
+          placeholderTextColor={currentTheme.text}
+          value={searchTerm}
+          onChangeText={onChangeSearch}
+        />
+      </View>
+
+      {filteredUsers.length === 0 ? (
+        <EmptyState
+          title={searchTerm ? 'No matches found' : 'No one new to add'}
+          description={
+            searchTerm
+              ? 'Try a different username or shorten the search.'
+              : 'You have already reached everyone currently available to add.'
+          }
+          theme={currentTheme}
+          accentColor={currentTheme.primary}
+          icon="search-outline"
+        />
+      ) : (
+        <FlatList
+          data={filteredUsers}
+          keyExtractor={(item) => item.uid}
+          renderItem={({ item, index }) => (
+            <Animated.View entering={FadeIn.delay(index * 50)}>
+              <OtherUser
+                username={item.username}
+                bannerColor={item.bannerColor}
+                theme={item.theme}
+                photoURL={item.photoURL}
+                onAdd={() => onSendRequest(item.uid)}
+                requestSent={requestSent.includes(item.uid)}
+              />
+            </Animated.View>
+          )}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContent}
+        />
+      )}
+
+      {totalPages > 1 ? (
         <View style={styles.paginationContainer}>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-            <TouchableOpacity
+          {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+            <Pressable
               key={page}
               style={[
                 styles.pageButton,
-                page === currentPage && { backgroundColor: currentTheme.primary },
+                {
+                  backgroundColor:
+                    page === currentPage ? currentTheme.primary : currentTheme.surface,
+                  borderColor: currentTheme.border,
+                },
               ]}
               onPress={() => onPageChange(page)}
             >
               <Text
                 style={[
                   styles.pageButtonText,
-                  { color: page === currentPage ? currentTheme.buttonText : currentTheme.text },
+                  {
+                    color: page === currentPage ? '#fff' : currentTheme.text,
+                  },
                 ]}
               >
                 {page}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </View>
-      )}
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  searchInput: {
-    height: 40,
+  container: {
+    flex: 1,
+  },
+  searchShell: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    marginBottom: 12,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 14,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: 'Parkinsans',
+  },
+  listContent: {
+    paddingBottom: 8,
   },
   paginationContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 16,
   },
   pageButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginHorizontal: 4,
-    borderRadius: 4,
+    minWidth: 42,
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: "#ccc",
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
   pageButtonText: {
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: 'Parkinsans',
   },
 });

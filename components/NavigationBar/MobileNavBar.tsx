@@ -1,22 +1,19 @@
-// MobileNavBar.tsx
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Image, TouchableOpacity, LayoutChangeEvent, StyleSheet } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Image, TouchableOpacity, StyleSheet, Text } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getDoc, doc } from 'firebase/firestore';
-import { auth, db } from '@/components/firebaseConfig';
-import THEMES from '@/constants/themes';
 import Animated, {
   useAnimatedStyle,
   withTiming,
-  useSharedValue,
 } from 'react-native-reanimated';
+
+import { useUserContext } from '@/context/UserContext';
+import THEMES from '@/constants/themes';
 
 type MobileNavBarProps = {
   theme: typeof THEMES[keyof typeof THEMES];
 };
 
-// A small animated icon component for each tab icon
 function AnimatedTabIcon({
   name,
   color,
@@ -28,11 +25,10 @@ function AnimatedTabIcon({
   focused: boolean;
   size: number;
 }) {
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: withTiming(focused ? 1.1 : 1, { duration: 200 }) }],
-    };
-  });
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: withTiming(focused ? 1.08 : 1, { duration: 180 }) }],
+  }));
+
   return (
     <Animated.View style={animatedStyle}>
       <Ionicons name={name} size={size} color={color} />
@@ -40,49 +36,18 @@ function AnimatedTabIcon({
   );
 }
 
-// A custom tab bar with a little animated line on top
-function CustomTabBar({ state, descriptors, navigation, theme }: any) {
-  // We'll store widths of each tab so we can animate the line horizontally
-  const [tabWidths, setTabWidths] = useState<number[]>([]);
-  const translateX = useSharedValue(0);
-
-  // Whenever active tab changes, move the line
-  React.useEffect(() => {
-    if (tabWidths.length === state.routes.length) {
-      let offset = 0;
-      for (let i = 0; i < state.index; i++) {
-        offset += tabWidths[i] || 0;
-      }
-      translateX.value = withTiming(offset, { duration: 250 });
-    }
-  }, [state.index, tabWidths]);
-
-  // Capture the width of each tab
-  const onLayoutTab = (index: number) => (e: LayoutChangeEvent) => {
-    const { width } = e.nativeEvent.layout;
-    setTabWidths((prev) => {
-      const updated = [...prev];
-      updated[index] = width;
-      return updated;
-    });
-  };
-
-  // Animated top line style
-  const animatedLineStyle = useAnimatedStyle(() => {
-    const currentTabWidth = tabWidths[state.index] || 0;
-    return {
-      width: currentTabWidth,
-      transform: [{ translateX: translateX.value }],
-      backgroundColor: theme.contrast,
-    };
-  });
-
+function CustomTabBar({ state, descriptors, navigation, theme, profilePicture }: any) {
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* The little line at the top */}
-      <Animated.View style={[styles.indicator, animatedLineStyle]} />
-      {/* Row of tabs */}
-      <View style={styles.row}>
+    <View style={styles.outerWrap}>
+      <View
+        style={[
+          styles.dock,
+          {
+            backgroundColor: theme.surface,
+            borderColor: theme.border || theme.divider,
+          },
+        ]}
+      >
         {state.routes.map((route: any, index: number) => {
           const { options } = descriptors[route.key];
           const focused = state.index === index;
@@ -98,31 +63,52 @@ function CustomTabBar({ state, descriptors, navigation, theme }: any) {
             }
           };
 
-          // Use the same icon if provided, or fallback
-          const iconName = (options as any).iconName || 'alert-circle';
+          const labelMap: Record<string, string> = {
+            index: 'Daily',
+            freeplay: 'Freeplay',
+            social: 'Social',
+            friends: 'Friends',
+            profile: 'Profile',
+          };
+
+          const tintMap: Record<string, string> = {
+            index: theme.daily,
+            freeplay: theme.freeplay,
+            social: theme.social,
+            friends: theme.friends,
+            profile: theme.text,
+          };
 
           return (
             <TouchableOpacity
               key={route.key}
               onPress={onPress}
-              onLayout={onLayoutTab(index)}
-              style={styles.tabButton}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
+              style={[
+                styles.tabButton,
+                {
+                  backgroundColor: focused ? theme.background : 'transparent',
+                  borderColor: focused ? theme.border || theme.divider : 'transparent',
+                },
+              ]}
             >
-              {/* If there's a custom tabBarIcon function, use it. Otherwise fallback */}
-              {typeof options.tabBarIcon === 'function' ? (
+              {route.name === 'profile' && profilePicture ? (
+                <Image source={{ uri: profilePicture }} style={styles.profileImage} />
+              ) : typeof options.tabBarIcon === 'function' ? (
                 options.tabBarIcon({
-                  color: theme.contrast,
+                  color: tintMap[route.name] || theme.text,
                   focused,
-                  size: 28,
+                  size: 22,
                 })
-              ) : (
-                <Ionicons
-                  name={iconName}
-                  size={28}
-                  color={theme.contrast}
-                />
-              )}
+              ) : null}
+              <Text
+                style={[
+                  styles.tabLabel,
+                  { color: focused ? theme.text : tintMap[route.name] || theme.text },
+                ]}
+              >
+                {labelMap[route.name] || route.name}
+              </Text>
             </TouchableOpacity>
           );
         })}
@@ -132,51 +118,31 @@ function CustomTabBar({ state, descriptors, navigation, theme }: any) {
 }
 
 export default function MobileNavBar({ theme }: MobileNavBarProps) {
-  const [profilePicture, setProfilePicture] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (auth.currentUser) {
-      const uid = auth.currentUser.uid;
-      getDoc(doc(db, 'profile', uid))
-        .then((snap) => {
-          if (snap.exists()) {
-            const data = snap.data();
-            if (data.photoURL) {
-              setProfilePicture(data.photoURL);
-            }
-          }
-        })
-        .catch((error) => console.error('Error fetching profile picture:', error));
-    }
-  }, []);
-
-  const ICON_SIZE = 28;
+  const { user } = useUserContext();
+  const profilePicture = user?.photoURL || null;
+  const ICON_SIZE = 22;
 
   const screenOptions = useMemo(
     () => ({
       tabBarShowLabel: false,
       headerShown: false,
       tabBarStyle: {
-        backgroundColor: theme.background,
-        // Control overall height here
-        height: 50,
-        borderTopWidth: 1,
-        borderTopColor: theme.border || '#ccc',
+        display: 'none' as const,
       },
     }),
-    [theme]
+    []
   );
 
   return (
     <Tabs
       screenOptions={screenOptions}
-      // We override the default tab bar to draw our own line on top
-      tabBar={(props) => <CustomTabBar {...props} theme={theme} />}
+      tabBar={(props) => (
+        <CustomTabBar {...props} theme={theme} profilePicture={profilePicture} />
+      )}
     >
       <Tabs.Screen
         name="index"
         options={{
-          // Removed invalid iconName property
           tabBarIcon: ({ focused }) => (
             <AnimatedTabIcon
               name="home-sharp"
@@ -190,7 +156,6 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
       <Tabs.Screen
         name="freeplay"
         options={{
-          // Removed invalid iconName property
           tabBarIcon: ({ focused }) => (
             <AnimatedTabIcon
               name="game-controller"
@@ -204,7 +169,6 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
       <Tabs.Screen
         name="social"
         options={{
-          // Removed invalid iconName property
           tabBarIcon: ({ focused }) => (
             <AnimatedTabIcon
               name="chatbubbles"
@@ -218,7 +182,6 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
       <Tabs.Screen
         name="friends"
         options={{
-          // Removed invalid iconName property
           tabBarIcon: ({ focused }) => (
             <AnimatedTabIcon
               name="people-circle"
@@ -232,31 +195,14 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
       <Tabs.Screen
         name="profile"
         options={{
-          // Removed invalid iconName property
-          tabBarIcon: ({ focused }) =>
-            profilePicture ? (
-              <Animated.View
-                style={{
-                  transform: [{ scale: withTiming(focused ? 1.1 : 1, { duration: 200 }) }],
-                }}
-              >
-                <Image
-                  source={{ uri: profilePicture }}
-                  style={{
-                    width: ICON_SIZE,
-                    height: ICON_SIZE,
-                    borderRadius: ICON_SIZE / 2,
-                  }}
-                />
-              </Animated.View>
-            ) : (
-              <AnimatedTabIcon
-                name="person"
-                size={ICON_SIZE}
-                color={theme.contrast}
-                focused={focused}
-              />
-            ),
+          tabBarIcon: ({ focused }) => (
+            <AnimatedTabIcon
+              name="person"
+              size={ICON_SIZE}
+              color={theme.text}
+              focused={focused}
+            />
+          ),
         }}
       />
     </Tabs>
@@ -264,25 +210,37 @@ export default function MobileNavBar({ theme }: MobileNavBarProps) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    height: 50,
-    justifyContent: 'flex-end',
+  outerWrap: {
+    paddingHorizontal: 12,
+    paddingBottom: 10,
+    backgroundColor: 'transparent',
   },
-  row: {
+  dock: {
+    minHeight: 76,
+    borderWidth: 1,
+    borderRadius: 28,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
     flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+    gap: 6,
   },
   tabButton: {
     flex: 1,
+    borderWidth: 1,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 5,
+    gap: 6,
+    paddingVertical: 8,
   },
-  indicator: {
-    position: 'absolute',
-    top: 0,
-    height: 3,
-    borderRadius: 2,
+  tabLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: 'Parkinsans',
+  },
+  profileImage: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
   },
 });

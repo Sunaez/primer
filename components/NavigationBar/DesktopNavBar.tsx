@@ -1,4 +1,3 @@
-// /components/NavigationBar/DesktopNavBar.tsx
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, Image } from 'react-native';
 import { Slot, Link, LinkProps, usePathname } from 'expo-router';
@@ -9,6 +8,7 @@ import Animated, {
   interpolateColor,
 } from 'react-native-reanimated';
 import Ionicons from '@expo/vector-icons/Ionicons';
+
 import { useUserContext } from '@/context/UserContext';
 import THEMES from '@/constants/themes';
 
@@ -17,38 +17,62 @@ type DesktopNavBarProps = {
 };
 
 const NAV_LINKS = [
-  { title: 'Daily', href: '/(tabs)', iconName: 'home-sharp' },
-  { title: 'Freeplay', href: '/(tabs)/freeplay', iconName: 'game-controller' },
-  { title: 'Social', href: '/(tabs)/social', iconName: 'chatbubbles' },
-  { title: 'Friends', href: '/(tabs)/friends', iconName: 'people-circle' },
-  { title: 'Profile', href: '/(tabs)/profile', iconName: 'person' },
+  { title: 'Daily', href: '/(tabs)', iconName: 'home-sharp', colorKey: 'daily' },
+  { title: 'Freeplay', href: '/(tabs)/freeplay', iconName: 'game-controller', colorKey: 'freeplay' },
+  { title: 'Social', href: '/(tabs)/social', iconName: 'chatbubbles', colorKey: 'social' },
+  { title: 'Friends', href: '/(tabs)/friends', iconName: 'people-circle', colorKey: 'friends' },
+  { title: 'Profile', href: '/(tabs)/profile', iconName: 'person', colorKey: 'text' },
 ] as const;
 
 export default function DesktopNavBar({ theme }: DesktopNavBarProps) {
-  // Get logged in user's info from context.
   const { user } = useUserContext();
-  // Extract profilePicture if available.
-  const profilePicture = user?.photoURL;
 
   return (
-    <View style={[styles.desktopContainer, { backgroundColor: theme.background }]}>
-      <View style={[styles.sideNav, { backgroundColor: theme.surface }]}>
-        <View style={styles.logoContainer}>
-          <Text style={[styles.logoText, { color: theme.primary }]}>Primer</Text>
+    <View style={[styles.shell, { backgroundColor: theme.background }]}>
+      <View
+        style={[
+          styles.sideNav,
+          { backgroundColor: theme.surface, borderRightColor: theme.border || theme.divider },
+        ]}
+      >
+        <View style={styles.brandBlock}>
+          <Text style={[styles.brandName, { color: theme.text }]}>Primer</Text>
+          <Text style={[styles.brandDescription, { color: theme.text }]}>
+            Daily training, freeplay reps, and score tracking in one place.
+          </Text>
         </View>
-        {NAV_LINKS.map((link) => (
-          <DesktopNavItem
-            key={link.title}
-            title={link.title}
-            href={link.href}
-            iconName={link.iconName}
-            theme={theme}
-            // If this is the Profile link, pass in the profile picture.
-            profilePicture={link.title === 'Profile' ? profilePicture : undefined}
-          />
-        ))}
-        <View style={styles.divider} />
+
+        <View style={styles.linkGroup}>
+          {NAV_LINKS.map((link) => (
+            <DesktopNavItem
+              key={link.title}
+              title={link.title}
+              href={link.href}
+              iconName={link.iconName}
+              theme={theme}
+              accentColor={theme[link.colorKey]}
+              profilePicture={link.title === 'Profile' ? user?.photoURL : undefined}
+            />
+          ))}
+        </View>
+
+        <View
+          style={[
+            styles.footerCard,
+            { backgroundColor: theme.background, borderColor: theme.border || theme.divider },
+          ]}
+        >
+          <Text style={[styles.footerTitle, { color: theme.text }]}>
+            {user?.username || 'Guest mode'}
+          </Text>
+          <Text style={[styles.footerCopy, { color: theme.text }]}>
+            {user
+              ? `${user.friends?.friends?.length || 0} friends connected`
+              : 'Sign in from Profile to save streaks and social activity.'}
+          </Text>
+        </View>
       </View>
+
       <View style={[styles.mainContent, { backgroundColor: theme.background }]}>
         <Slot />
       </View>
@@ -61,6 +85,7 @@ type DesktopNavItemProps = {
   href: LinkProps['href'];
   iconName: keyof typeof Ionicons.glyphMap;
   theme: typeof THEMES[keyof typeof THEMES];
+  accentColor: string;
   profilePicture?: string | null;
 };
 
@@ -69,68 +94,59 @@ function DesktopNavItem({
   href,
   iconName,
   theme,
+  accentColor,
   profilePicture,
 }: DesktopNavItemProps) {
   const pathname = usePathname();
   const isActive = pathname.startsWith(typeof href === 'string' ? href : (href as any).pathname);
-
-  // Shared value for hover.
   const hoverValue = useSharedValue(0);
 
-  // Determine icon color. If active, we use theme.contrast; otherwise, for specific nav titles we use new icon properties.
-  let iconColor = isActive ? theme.contrast : theme.text;
-  if (!isActive) {
-    if (title === "Daily") iconColor = theme.daily;
-    else if (title === "Freeplay") iconColor = theme.freeplay;
-    else if (title === "Social") iconColor = theme.social;
-    else if (title === "Friends") iconColor = theme.friends;
-  }
-
-  // Animated style for hover using scale and background color interpolation.
-  const animatedStyle = useAnimatedStyle(() => {
-    const bgColor = isActive
-      ? theme.selection
-      : interpolateColor(hoverValue.value, [0, 1], ['transparent', theme.hover]);
-    return {
-      backgroundColor: bgColor,
-      transform: [{ scale: 1 + 0.05 * hoverValue.value }],
-    };
-  });
+  const animatedStyle = useAnimatedStyle(() => ({
+    backgroundColor: isActive
+      ? theme.background
+      : interpolateColor(hoverValue.value, [0, 1], ['transparent', theme.background]),
+    transform: [{ scale: withTiming(hoverValue.value ? 1.01 : 1, { duration: 180 }) }],
+  }));
 
   return (
     <Link href={href} asChild>
       <Pressable
         onHoverIn={() => {
-          hoverValue.value = withTiming(1, { duration: 200 });
+          hoverValue.value = withTiming(1, { duration: 180 });
         }}
         onHoverOut={() => {
-          hoverValue.value = withTiming(0, { duration: 200 });
+          hoverValue.value = withTiming(0, { duration: 180 });
         }}
-        style={({ pressed }) => [
-          styles.navItemDesktop,
+        style={[
+          styles.navItem,
           {
-            borderColor: isActive ? theme.primary : 'transparent',
-            borderWidth: 2,
+            borderColor: isActive ? accentColor : 'transparent',
           },
-          pressed && { backgroundColor: theme.primary },
         ]}
       >
-        <Animated.View style={animatedStyle}>
-          <View style={styles.navItemContent}>
+        <Animated.View style={[styles.navInner, animatedStyle]}>
+          <View style={[styles.iconWrap, { backgroundColor: accentColor }]}>
             {title === 'Profile' && profilePicture ? (
-              <Image source={{ uri: profilePicture }} style={styles.profileIcon} />
+              <Image source={{ uri: profilePicture }} style={styles.profileImage} />
             ) : (
-              <Ionicons
-                name={iconName}
-                size={40}
-                color={iconColor}
-                style={styles.iconStyle}
-              />
+              <Ionicons name={iconName} size={18} color="#fff" />
             )}
-            <Text style={[styles.navTextDesktop, { color: isActive ? theme.contrast : theme.text }]}>
-              {title}
+          </View>
+          <View style={styles.linkCopy}>
+            <Text style={[styles.navText, { color: theme.text }]}>{title}</Text>
+            <Text style={[styles.navSubtext, { color: theme.text }]}>
+              {title === 'Daily'
+                ? 'Two focused rounds'
+                : title === 'Freeplay'
+                ? 'Practice any game'
+                : title === 'Social'
+                ? 'Compare with friends'
+                : title === 'Friends'
+                ? 'Manage your circle'
+                : 'Stats and identity'}
             </Text>
           </View>
+          {isActive ? <View style={[styles.activeBar, { backgroundColor: accentColor }]} /> : null}
         </Animated.View>
       </Pressable>
     </Link>
@@ -138,57 +154,96 @@ function DesktopNavItem({
 }
 
 const styles = StyleSheet.create({
-  desktopContainer: {
+  shell: {
     flex: 1,
     flexDirection: 'row',
   },
   sideNav: {
-    width: 256,
-    paddingTop: 5,
-    paddingHorizontal: 10,
-    alignItems: 'flex-start',
+    width: 300,
+    borderRightWidth: 1,
+    padding: 18,
   },
-  logoContainer: {
-    marginBottom: 16,
-    width: '100%',
-    alignItems: 'flex-start',
+  brandBlock: {
+    marginBottom: 18,
   },
-  logoText: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  brandName: {
+    fontSize: 28,
+    fontWeight: '700',
+    fontFamily: 'Parkinsans',
   },
-  divider: {
-    borderTopColor: '#ccc',
-    borderTopWidth: 1,
-    width: '100%',
-    marginTop: 10,
+  brandDescription: {
+    marginTop: 8,
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.8,
+    fontFamily: 'Parkinsans',
   },
-  mainContent: {
-    flex: 1,
+  linkGroup: {
+    gap: 8,
   },
-  navItemDesktop: {
-    borderRadius: 8,
-    width: '100%',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginVertical: 4,
+  navItem: {
+    borderWidth: 1,
+    borderRadius: 22,
   },
-  navItemContent: {
+  navInner: {
+    minHeight: 74,
+    borderRadius: 21,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 14,
+    gap: 12,
+    position: 'relative',
   },
-  iconStyle: {
-    width: 40,
-    marginRight: 12,
-  },
-  profileIcon: {
+  iconWrap: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  navTextDesktop: {
-    fontSize: 20,
-    fontWeight: '600',
+  profileImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  linkCopy: {
+    flex: 1,
+  },
+  navText: {
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: 'Parkinsans',
+  },
+  navSubtext: {
+    marginTop: 4,
+    fontSize: 12,
+    opacity: 0.72,
+    fontFamily: 'Parkinsans',
+  },
+  activeBar: {
+    width: 6,
+    height: 34,
+    borderRadius: 999,
+  },
+  footerCard: {
+    marginTop: 'auto',
+    borderWidth: 1,
+    borderRadius: 22,
+    padding: 14,
+  },
+  footerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: 'Parkinsans',
+  },
+  footerCopy: {
+    marginTop: 6,
+    fontSize: 13,
+    lineHeight: 18,
+    opacity: 0.78,
+    fontFamily: 'Parkinsans',
+  },
+  mainContent: {
+    flex: 1,
   },
 });

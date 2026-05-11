@@ -111,7 +111,7 @@ const BestScoreGraph: React.FC<BestScoreGraphProps> = ({ chartWidth, chartHeight
             width={effectiveWidth}
             height={effectiveHeight}
             currentTheme={currentTheme}
-            fontFamily="Parkisans"
+            fontFamily="Parkinsans"
           />
         </>
       ) : (

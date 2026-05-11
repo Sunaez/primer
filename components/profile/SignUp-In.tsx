@@ -1,85 +1,96 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
   TextInput,
   Text,
   Alert,
-  TouchableOpacity,
-} from "react-native";
+  Pressable,
+  useWindowDimensions,
+} from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   interpolate,
-} from "react-native-reanimated";
-import { auth, db } from "@/components/firebaseConfig";
+} from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
-} from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
-import { useUserContext, useThemeContext, UserProfile, ThemeName } from "@/context/UserContext";
-import THEMES from "@/constants/themes";
-import adjectives from "@/constants/UsernameGenerator/adjectives";
-import names from "@/constants/UsernameGenerator/names";
-import { Ionicons } from "@expo/vector-icons";
+} from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
-// Regex: Min 8 chars, 1 uppercase, 1 lowercase, 1 number
+import { auth, db } from '@/components/firebaseConfig';
+import {
+  useUserContext,
+  useThemeContext,
+  UserProfile,
+  ThemeName,
+} from '@/context/UserContext';
+import THEMES from '@/constants/themes';
+import adjectives from '@/constants/UsernameGenerator/adjectives';
+import names from '@/constants/UsernameGenerator/names';
+
 const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/;
-// Simple email regex for validation
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type SignUpInProps = {
   onAuthSuccess: () => void;
 };
 
-export default function SignUpIn({ onAuthSuccess }: SignUpInProps) {
-  // Email/password inputs
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+function ChecklistItem({
+  met,
+  label,
+}: {
+  met: boolean;
+  label: string;
+}) {
+  return (
+    <View style={styles.checklistItem}>
+      <Ionicons
+        name={met ? 'checkmark-circle-outline' : 'close-circle-outline'}
+        size={16}
+        color={met ? '#2e9b57' : '#d04a4a'}
+      />
+      <Text style={styles.checklistText}>{label}</Text>
+    </View>
+  );
+}
 
-  // Toggles for sign-up vs. login, and forgot-password mode
+export default function SignUpIn({ onAuthSuccess }: SignUpInProps) {
+  const { width } = useWindowDimensions();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
 
-  // For theme and user context
   const { themeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
   const { setUser } = useUserContext();
 
-  // A shared value to animate the password container’s height
-  const passContainerHeight = useSharedValue(1); // 1 means fully visible, 0 means hidden
+  const passContainerHeight = useSharedValue(1);
 
-  // Animated style to interpolate container height between 0 and 60 (adjust as you wish)
-  const passAnimatedStyle = useAnimatedStyle(() => {
-    const height = interpolate(passContainerHeight.value, [0, 1], [0, 60]);
-    return {
-      height,
-      opacity: passContainerHeight.value,
-      overflow: "hidden",
-    };
-  });
+  useEffect(() => {
+    passContainerHeight.value = withTiming(isForgotPassword ? 0 : 1, { duration: 260 });
+  }, [isForgotPassword, passContainerHeight]);
 
-  // Toggle the forgot password mode
-  const toggleForgotPassword = () => {
-    setIsForgotPassword(!isForgotPassword);
-    // If forgetting password, hide the password container; otherwise, show it
-    passContainerHeight.value = withTiming(isForgotPassword ? 1 : 0, { duration: 300 });
-  };
+  const passAnimatedStyle = useAnimatedStyle(() => ({
+    height: interpolate(passContainerHeight.value, [0, 1], [0, 76]),
+    opacity: passContainerHeight.value,
+    overflow: 'hidden',
+  }));
 
-  // Validate password meets the security requirements
   function validatePassword(pw: string) {
     return passwordRegex.test(pw);
   }
 
-  // Validate email format
-  function isValidEmail(email: string) {
-    return emailRegex.test(email);
+  function isValidEmail(emailValue: string) {
+    return emailRegex.test(emailValue);
   }
 
-  // Generate a random username (for new sign-ups)
   function generateRandomUsername() {
     const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)];
     const randomName = names[Math.floor(Math.random() * names.length)];
@@ -87,236 +98,308 @@ export default function SignUpIn({ onAuthSuccess }: SignUpInProps) {
     return `${randomAdjective}${randomName}${randomNumber}`;
   }
 
-  // Handle sign-up or login flow
   const handleAuthAction = async () => {
     if (!email.trim()) {
-      Alert.alert("Input Error", "Please provide a valid email.");
+      Alert.alert('Input error', 'Please enter an email address.');
       return;
     }
     if (!isForgotPassword && !password) {
-      Alert.alert("Input Error", "Please provide a valid password.");
+      Alert.alert('Input error', 'Please enter a password.');
       return;
     }
     if (isSignUp && !isForgotPassword && !validatePassword(password)) {
       Alert.alert(
-        "Weak Password",
-        "Password must be at least 8 characters, with 1 uppercase, 1 lowercase, and 1 number."
+        'Weak password',
+        'Use at least 8 characters with 1 uppercase letter, 1 lowercase letter, and 1 number.'
       );
       return;
     }
-    if (isSignUp && !isValidEmail(email.trim())) {
-      Alert.alert("Input Error", "Please provide a valid email address.");
+    if (!isValidEmail(email.trim())) {
+      Alert.alert('Input error', 'Please enter a valid email address.');
       return;
     }
 
     try {
       if (isForgotPassword) {
-        // Forgot password flow
         await sendPasswordResetEmail(auth, email.trim());
-        Alert.alert("Reset Email Sent", "Check your inbox for a password reset email.");
-        toggleForgotPassword(); // hide forgot pass mode
+        Alert.alert('Reset email sent', 'Check your inbox for the password reset link.');
+        setIsForgotPassword(false);
         return;
       }
 
       if (isSignUp) {
-        // Sign-up flow
         const userCred = await createUserWithEmailAndPassword(auth, email.trim(), password);
         const uid = userCred.user.uid;
-        const randomUsername = generateRandomUsername();
-        const profileData: Omit<UserProfile, "uid"> = {
-          username: randomUsername,
-          bannerColor: "#333333",
+        const profileData: Omit<UserProfile, 'uid'> = {
+          username: generateRandomUsername(),
+          bannerColor: '#333333',
           photoURL: null,
-          theme: "Dark" as ThemeName,
+          theme: 'Dark' as ThemeName,
           friends: { friends: [], friendRequests: [], blocked: [] },
         };
-        await setDoc(doc(db, "profile", uid), profileData);
+        await setDoc(doc(db, 'profile', uid), profileData);
         setUser({ uid, ...profileData });
         onAuthSuccess();
-      } else {
-        // Login flow
-        const userCred = await signInWithEmailAndPassword(auth, email.trim(), password);
-        const uid = userCred.user.uid;
-        const profileRef = doc(db, "profile", uid);
-        const snap = await getDoc(profileRef);
-        if (!snap.exists()) {
-          // Create a default profile if none exists
-          const randomUsername = generateRandomUsername();
-          const profileData: Omit<UserProfile, "uid"> = {
-            username: randomUsername,
-            bannerColor: "#333333",
-            photoURL: null,
-            theme: "Dark" as ThemeName,
-            friends: { friends: [], friendRequests: [], blocked: [] },
-          };
-          await setDoc(profileRef, profileData);
-          setUser({ uid, ...profileData });
-        }
-        Alert.alert("Success", "Logged in successfully!");
-        onAuthSuccess();
+        return;
       }
+
+      const userCred = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const uid = userCred.user.uid;
+      const profileRef = doc(db, 'profile', uid);
+      const snap = await getDoc(profileRef);
+      if (!snap.exists()) {
+        const profileData: Omit<UserProfile, 'uid'> = {
+          username: generateRandomUsername(),
+          bannerColor: '#333333',
+          photoURL: null,
+          theme: 'Dark' as ThemeName,
+          friends: { friends: [], friendRequests: [], blocked: [] },
+        };
+        await setDoc(profileRef, profileData);
+        setUser({ uid, ...profileData });
+      }
+      onAuthSuccess();
     } catch (error: any) {
-      // Email enumeration handling
-      if (isSignUp && error.code === "auth/email-already-in-use") {
-        Alert.alert("Error", "This email is already in use.");
-      } else if (!isSignUp && error.code === "auth/user-not-found") {
-        Alert.alert("Error", "No account found with this email.");
+      if (isSignUp && error.code === 'auth/email-already-in-use') {
+        Alert.alert('Error', 'That email is already in use.');
+      } else if (!isSignUp && error.code === 'auth/user-not-found') {
+        Alert.alert('Error', 'No account was found for that email.');
       } else {
-        console.error("Authentication error:", error);
-        Alert.alert("Error", error.message || "Check your input or try again later.");
+        console.error('Authentication error:', error);
+        Alert.alert('Error', error.message || 'Please try again later.');
       }
     }
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
-      {/* Email Field (always visible) */}
-      <TextInput
-        style={[styles.input, { color: currentTheme.text, borderColor: currentTheme.text }]}
-        placeholder="Email"
-        placeholderTextColor={currentTheme.text}
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-
-      {/* Email Validation Checklist for Sign Up */}
-      {isSignUp && (
-        <View style={styles.checklistContainer}>
-          <View style={styles.checklistItem}>
-            {isValidEmail(email.trim()) ? (
-              <Ionicons name="checkmark-circle-outline" size={16} color="green" />
-            ) : (
-              <Ionicons name="close-circle-outline" size={16} color="red" />
-            )}
-            <Text style={styles.checklistText}> Valid Email Address</Text>
-          </View>
-        </View>
-      )}
-
-      {/* Password Field Container (animated) */}
-      <Animated.View style={[styles.passwordContainer, passAnimatedStyle]}>
-        {!isForgotPassword && (
-          <TextInput
-            style={[styles.input, { color: currentTheme.text, borderColor: currentTheme.text }]}
-            placeholder="Password"
-            placeholderTextColor={currentTheme.text}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-        )}
-      </Animated.View>
-
-      {/* Password Requirements Checklist for Sign Up */}
-      {isSignUp && (
-        <View style={styles.checklistContainer}>
-          <View style={styles.checklistItem}>
-            {password.length >= 8 ? (
-              <Ionicons name="checkmark-circle-outline" size={16} color="green" />
-            ) : (
-              <Ionicons name="close-circle-outline" size={16} color="red" />
-            )}
-            <Text style={styles.checklistText}> At least 8 characters</Text>
-          </View>
-          <View style={styles.checklistItem}>
-            {/[A-Z]/.test(password) ? (
-              <Ionicons name="checkmark-circle-outline" size={16} color="green" />
-            ) : (
-              <Ionicons name="close-circle-outline" size={16} color="red" />
-            )}
-            <Text style={styles.checklistText}> At least one uppercase letter</Text>
-          </View>
-          <View style={styles.checklistItem}>
-            {/[a-z]/.test(password) ? (
-              <Ionicons name="checkmark-circle-outline" size={16} color="green" />
-            ) : (
-              <Ionicons name="close-circle-outline" size={16} color="red" />
-            )}
-            <Text style={styles.checklistText}> At least one lowercase letter</Text>
-          </View>
-          <View style={styles.checklistItem}>
-            {/\d/.test(password) ? (
-              <Ionicons name="checkmark-circle-outline" size={16} color="green" />
-            ) : (
-              <Ionicons name="close-circle-outline" size={16} color="red" />
-            )}
-            <Text style={styles.checklistText}> At least one number</Text>
-          </View>
-        </View>
-      )}
-
-      {/* Custom Sign In / Sign Up / Reset Password Button */}
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: currentTheme.primary }]}
-        onPress={handleAuthAction}
+    <View style={[styles.screen, { backgroundColor: currentTheme.background }]}>
+      <LinearGradient
+        colors={[currentTheme.primary, currentTheme.freeplay, currentTheme.surface]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={width >= 920 ? { ...styles.hero, ...styles.heroWide } : styles.hero}
       >
-        <Text style={[styles.buttonText, { color: currentTheme.text }]}>
-          {isForgotPassword ? "RESET PASSWORD" : isSignUp ? "Sign Up" : "Log In"}
+        <Text style={styles.heroEyebrow}>Profile</Text>
+        <Text style={styles.heroTitle}>Save your progress and make the app yours.</Text>
+        <Text style={styles.heroDescription}>
+          Accounts unlock streak tracking, social activity, friends, and profile customization.
         </Text>
-      </TouchableOpacity>
+      </LinearGradient>
 
-      {/* Toggle between login & sign-up */}
-      <TouchableOpacity onPress={() => setIsSignUp(!isSignUp)}>
-        <Text style={[styles.toggleText, { color: currentTheme.text }]}>
-          {isSignUp ? "Already have an account? Log in" : "Don't have an account? Sign up"}
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor: currentTheme.surface,
+            borderColor: currentTheme.border,
+            maxWidth: 620,
+          },
+        ]}
+      >
+        <Text style={[styles.cardTitle, { color: currentTheme.text }]}>
+          {isForgotPassword
+            ? 'Reset your password'
+            : isSignUp
+            ? 'Create your account'
+            : 'Log back in'}
         </Text>
-      </TouchableOpacity>
+        <Text style={[styles.cardDescription, { color: currentTheme.text }]}>
+          {isForgotPassword
+            ? 'We will send a reset link to your email.'
+            : isSignUp
+            ? 'Start with a generated username and personalize everything later.'
+            : 'Jump back into your stats, streak, and social feed.'}
+        </Text>
 
-      {/* Toggle forgot password */}
-      <TouchableOpacity onPress={toggleForgotPassword}>
-        <Text style={[styles.toggleText, { color: currentTheme.text }]}>
-          {isForgotPassword ? "I remember my password" : "I forgot my password"}
-        </Text>
-      </TouchableOpacity>
+        <View style={styles.form}>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                color: currentTheme.text,
+                borderColor: currentTheme.border,
+                backgroundColor: currentTheme.background,
+              },
+            ]}
+            placeholder="Email"
+            placeholderTextColor={currentTheme.text}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+
+          {isSignUp && !isForgotPassword ? (
+            <View style={styles.checklistGroup}>
+              <ChecklistItem met={isValidEmail(email.trim())} label="Valid email address" />
+            </View>
+          ) : null}
+
+          <Animated.View style={[passAnimatedStyle]}>
+            {!isForgotPassword ? (
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    color: currentTheme.text,
+                    borderColor: currentTheme.border,
+                    backgroundColor: currentTheme.background,
+                  },
+                ]}
+                placeholder="Password"
+                placeholderTextColor={currentTheme.text}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+            ) : null}
+          </Animated.View>
+
+          {isSignUp && !isForgotPassword ? (
+            <View style={styles.checklistGroup}>
+              <ChecklistItem met={password.length >= 8} label="At least 8 characters" />
+              <ChecklistItem met={/[A-Z]/.test(password)} label="One uppercase letter" />
+              <ChecklistItem met={/[a-z]/.test(password)} label="One lowercase letter" />
+              <ChecklistItem met={/\d/.test(password)} label="One number" />
+            </View>
+          ) : null}
+
+          <Pressable
+            style={[styles.primaryButton, { backgroundColor: currentTheme.primary }]}
+            onPress={handleAuthAction}
+          >
+            <Text style={styles.primaryButtonText}>
+              {isForgotPassword ? 'Send Reset Link' : isSignUp ? 'Create Account' : 'Log In'}
+            </Text>
+          </Pressable>
+
+          <View style={styles.linkGroup}>
+            {!isForgotPassword ? (
+              <Pressable onPress={() => setIsSignUp(!isSignUp)}>
+                <Text style={[styles.linkText, { color: currentTheme.text }]}>
+                  {isSignUp
+                    ? 'Already have an account? Log in'
+                    : 'Need an account? Create one'}
+                </Text>
+              </Pressable>
+            ) : null}
+            <Pressable onPress={() => setIsForgotPassword(!isForgotPassword)}>
+              <Text style={[styles.linkText, { color: currentTheme.text }]}>
+                {isForgotPassword ? 'Back to sign in' : 'Forgot your password?'}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 16,
+  screen: {
     flex: 1,
-    justifyContent: "center",
+    padding: 18,
+    justifyContent: 'center',
+    gap: 18,
   },
-  passwordContainer: {
-    overflow: "hidden",
+  hero: {
+    borderRadius: 30,
+    padding: 24,
+  },
+  heroWide: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 620,
+  },
+  heroEyebrow: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    fontFamily: 'Parkinsans',
+  },
+  heroTitle: {
+    color: '#fff',
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: '700',
+    marginTop: 10,
+    fontFamily: 'Parkinsans',
+  },
+  heroDescription: {
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: 15,
+    lineHeight: 22,
+    marginTop: 10,
+    fontFamily: 'Parkinsans',
+  },
+  card: {
+    alignSelf: 'center',
+    width: '100%',
+    borderWidth: 1,
+    borderRadius: 28,
+    padding: 22,
+  },
+  cardTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    fontFamily: 'Parkinsans',
+  },
+  cardDescription: {
+    marginTop: 8,
+    fontSize: 14,
+    lineHeight: 20,
+    opacity: 0.8,
+    fontFamily: 'Parkinsans',
+  },
+  form: {
+    marginTop: 20,
   },
   input: {
-    height: 40,
+    minHeight: 54,
     borderWidth: 1,
-    borderRadius: 5,
-    marginVertical: 6,
-    paddingHorizontal: 8,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    fontSize: 15,
+    fontFamily: 'Parkinsans',
+    marginBottom: 12,
   },
-  checklistContainer: {
-    marginVertical: 4,
-    paddingHorizontal: 8,
+  checklistGroup: {
+    marginBottom: 12,
+    gap: 6,
   },
   checklistItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   checklistText: {
-    fontSize: 12,
-    color: "#666",
-    marginLeft: 4,
+    fontSize: 13,
+    color: '#6b7280',
+    fontFamily: 'Parkinsans',
   },
-  button: {
-    marginVertical: 10,
-    paddingVertical: 12,
-    borderRadius: 5,
-    alignItems: "center",
+  primaryButton: {
+    minHeight: 54,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
   },
-  buttonText: {
-    fontSize: 16,
+  primaryButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: 'Parkinsans',
   },
-  toggleText: {
-    marginTop: 10,
+  linkGroup: {
+    marginTop: 18,
+    gap: 12,
+  },
+  linkText: {
     fontSize: 14,
-    textDecorationLine: "underline",
-    textAlign: "center",
+    textAlign: 'center',
+    textDecorationLine: 'underline',
+    fontFamily: 'Parkinsans',
   },
 });

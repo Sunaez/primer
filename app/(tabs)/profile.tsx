@@ -1,76 +1,71 @@
-// /app/(tabs)/profile.tsx
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
   Image,
-  TouchableOpacity,
+  Pressable,
   Text,
   ScrollView,
-  Dimensions,
-} from "react-native";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { auth, db } from "@/components/firebaseConfig";
-import { doc, getDoc, updateDoc, deleteDoc, deleteField } from "firebase/firestore";
-import { useThemeContext, useUserContext } from "@/context/UserContext";
-import THEMES from "@/constants/themes";
-import SignUpIn from "@/components/profile/SignUp-In";
-import UserSettings from "@/components/profile/UserSettings";
-import BannerChange from "@/components/profile/BannerChange";
-import PictureChange from "@/components/profile/PictureChange";
-import MostPlayedGraph from "@/components/profile/MostPlayedGraph";
-import BestScoreGraph from "@/components/profile/BestScoreGraph";
-import MostConsistentGraph from "@/components/profile/MostConsistentGraph";
-import ViewStats from "@/components/profile/ViewStats"; // New view statistics modal component
+  useWindowDimensions,
+} from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { auth, db } from '@/components/firebaseConfig';
+import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
+
+import { useThemeContext, useUserContext } from '@/context/UserContext';
+import THEMES from '@/constants/themes';
+import SignUpIn from '@/components/profile/SignUp-In';
+import UserSettings from '@/components/profile/UserSettings';
+import BannerChange from '@/components/profile/BannerChange';
+import PictureChange from '@/components/profile/PictureChange';
+import MostPlayedGraph from '@/components/profile/MostPlayedGraph';
+import BestScoreGraph from '@/components/profile/BestScoreGraph';
+import MostConsistentGraph from '@/components/profile/MostConsistentGraph';
+import ViewStats from '@/components/profile/ViewStats';
+import ScreenHeader from '@/components/ui/ScreenHeader';
+import MetricPill from '@/components/ui/MetricPill';
 
 export default function Profile() {
-  // Access the user and theme data from context.
   const { user } = useUserContext();
   const { themeName } = useThemeContext();
   const currentTheme = THEMES[themeName] || THEMES.Dark;
+  const { width } = useWindowDimensions();
+  const isWide = width >= 980;
 
-  // Responsive layout settings.
-  const screenWidth = Dimensions.get("window").width;
-  const graphWidth = screenWidth / 2.77;
-  const graphHeight = 80;
-  const singleGraphWidth = screenWidth / 2;
+  const graphWidth = isWide ? Math.max(260, (width - 140) / 3.2) : width - 84;
+  const graphHeight = 100;
 
-  // Local state to control modal visibility.
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [showBannerChange, setShowBannerChange] = useState(false);
   const [showPictureChange, setShowPictureChange] = useState(false);
-  const [viewStatsVisible, setViewStatsVisible] = useState(false); // NEW: controls statistics modal
+  const [viewStatsVisible, setViewStatsVisible] = useState(false);
 
-  // Fetch extra profile data or perform schema corrections.
   async function fetchUserProfileData() {
     if (!auth.currentUser) return;
     const uid = auth.currentUser.uid;
-    const profileDocRef = doc(db, "profile", uid);
+    const profileDocRef = doc(db, 'profile', uid);
     const snap = await getDoc(profileDocRef);
-    if (snap.exists()) {
-      const data = snap.data();
-      let updateNeeded = false;
-      const updates: any = {};
+    if (!snap.exists()) return;
 
-      // If the friends field is missing, add it.
-      if (!("friends" in data)) {
-        updates.friends = {
-          friends: [],
-          friendRequests: [],
-          blocked: [],
-        };
-        updateNeeded = true;
-      }
-      // Remove the old stats field if it exists.
-      if ("stats" in data) {
-        updates.stats = deleteField();
-        updateNeeded = true;
-      }
-      if (updateNeeded) {
-        await updateDoc(profileDocRef, updates);
-      }
-    } else {
-      console.log("Profile doc not found (data)");
+    const data = snap.data();
+    let updateNeeded = false;
+    const updates: any = {};
+
+    if (!('friends' in data)) {
+      updates.friends = {
+        friends: [],
+        friendRequests: [],
+        blocked: [],
+      };
+      updateNeeded = true;
+    }
+    if ('stats' in data) {
+      updates.stats = deleteField();
+      updateNeeded = true;
+    }
+    if (updateNeeded) {
+      await updateDoc(profileDocRef, updates);
     }
   }
 
@@ -80,225 +75,293 @@ export default function Profile() {
     }
   }, [user]);
 
-  // If no user is logged in, show the SignUpIn component.
   if (!user) {
-    return (
-      <SignUpIn
-        onAuthSuccess={() => {
-          // When a user signs in/up, the UserContext via onSnapshot will update automatically.
-        }}
-      />
-    );
+    return <SignUpIn onAuthSuccess={() => {}} />;
   }
 
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: currentTheme.background }]}
-      contentContainerStyle={styles.scrollContentContainer}
+      style={[styles.screen, { backgroundColor: currentTheme.background }]}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
     >
-      {/* Header Section */}
-      <View style={[styles.headerContainer, { height: 200 }]}>
+      <LinearGradient
+        colors={[user.bannerColor || currentTheme.primary, currentTheme.primary, currentTheme.surface]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.hero}
+      >
+        <View style={styles.heroTopRow}>
+          <ScreenHeader
+            eyebrow="Profile"
+            title={user.username ? `${user.username}, this is your control room.` : 'Your control room.'}
+            description="Update your look, track your habits, and keep your personal stats close."
+            accentColor="#fff"
+            textColor="#fff"
+            mutedColor="rgba(255,255,255,0.82)"
+          />
+
+          <View style={styles.heroActions}>
+            <Pressable style={styles.heroIconButton} onPress={() => setSettingsVisible(true)}>
+              <Ionicons name="settings-outline" size={22} color="#fff" />
+            </Pressable>
+            <Pressable style={styles.heroIconButton} onPress={() => setShowBannerChange(true)}>
+              <Ionicons name="color-palette-outline" size={22} color="#fff" />
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={[styles.identityCard, { backgroundColor: 'rgba(0,0,0,0.16)' }]}>
+          <View style={styles.identityRow}>
+            <View>
+              {user.photoURL ? (
+                <Image source={{ uri: user.photoURL }} style={styles.avatar} resizeMode="cover" />
+              ) : (
+                <View style={[styles.avatar, styles.avatarFallback]}>
+                  <Ionicons name="person" size={38} color="#fff" />
+                </View>
+              )}
+              <Pressable style={styles.avatarEditButton} onPress={() => setShowPictureChange(true)}>
+                <Ionicons name="camera-outline" size={18} color="#fff" />
+              </Pressable>
+            </View>
+
+            <View style={styles.identityCopy}>
+              <Text style={styles.username}>{user.username || 'Player'}</Text>
+              <Text style={styles.identitySubcopy}>Theme: {user.theme}</Text>
+              <Text style={styles.identitySubcopy}>
+                Friends: {user.friends?.friends?.length || 0} connected
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.heroMetrics}>
+            <MetricPill
+              icon="people-outline"
+              label="Friends"
+              value={`${user.friends?.friends?.length || 0}`}
+              textColor="#fff"
+              accentColor="rgba(255,255,255,0.18)"
+              backgroundColor="rgba(255,255,255,0.12)"
+            />
+            <MetricPill
+              icon="mail-open-outline"
+              label="Pending"
+              value={`${user.friends?.friendRequests?.length || 0}`}
+              textColor="#fff"
+              accentColor="rgba(255,255,255,0.18)"
+              backgroundColor="rgba(255,255,255,0.12)"
+            />
+            <MetricPill
+              icon="brush-outline"
+              label="Theme"
+              value={user.theme}
+              textColor="#fff"
+              accentColor="rgba(255,255,255,0.18)"
+              backgroundColor="rgba(255,255,255,0.12)"
+            />
+          </View>
+        </View>
+      </LinearGradient>
+
+      <View style={styles.section}>
+        <ScreenHeader
+          eyebrow="Stats"
+          title="See the shape of your play."
+          description="Quick charts keep your strongest patterns visible without making the page feel heavy."
+          accentColor={currentTheme.primary}
+          textColor={currentTheme.text}
+          mutedColor={currentTheme.text}
+          rightSlot={
+            <Pressable
+              style={[styles.statsButton, { backgroundColor: currentTheme.primary }]}
+              onPress={() => setViewStatsVisible(true)}
+            >
+              <Ionicons name="stats-chart-outline" size={18} color="#fff" />
+              <Text style={styles.statsButtonText}>View Statistics</Text>
+            </Pressable>
+          }
+        />
+      </View>
+
+      <View style={[styles.graphGrid, isWide && styles.graphGridWide]}>
         <View
           style={[
-            styles.bannerContainer,
-            { backgroundColor: user.bannerColor },
+            styles.graphCard,
+            { backgroundColor: currentTheme.surface, borderColor: currentTheme.border },
           ]}
-        />
-        <View style={styles.profileImageWrapper}>
-          {user.photoURL ? (
-            <Image
-              source={{ uri: user.photoURL }}
-              style={styles.profileImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <View
-              style={[styles.profileImage, { backgroundColor: "#999" }]}
-            />
-          )}
-          <TouchableOpacity
-            style={styles.pictureIcon}
-            onPress={() => setShowPictureChange(true)}
-          >
-            <Ionicons name="image-outline" size={24} color="#fff" />
-          </TouchableOpacity>
+        >
+          <Text style={[styles.graphTitle, { color: currentTheme.text }]}>Most Played</Text>
+          <MostPlayedGraph chartWidth={graphWidth} chartHeight={graphHeight} />
         </View>
-        <TouchableOpacity
-          style={styles.settingsIconBanner}
-          onPress={() => setSettingsVisible(true)}
-        >
-          <Ionicons name="settings-outline" size={28} color="#fff" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.paintbrushIcon}
-          onPress={() => setShowBannerChange(true)}
-        >
-          <Ionicons name="color-palette-outline" size={28} color="#fff" />
-        </TouchableOpacity>
-      </View>
 
-      {/* Info Section */}
-      <View style={styles.infoContainer}>
-        <Text style={[styles.text, { color: currentTheme.text }]}>
-          {user.username ? `Welcome, ${user.username}!` : `Welcome!`}
-        </Text>
-        {/* NEW: Button to open statistics modal */}
-        <TouchableOpacity
-          style={[styles.statsButton, { backgroundColor: currentTheme.button }]}
-          onPress={() => setViewStatsVisible(true)}
+        <View
+          style={[
+            styles.graphCard,
+            { backgroundColor: currentTheme.surface, borderColor: currentTheme.border },
+          ]}
         >
-          <Ionicons name="stats-chart-outline" size={20} color={currentTheme.buttonText} />
-          <Text style={[styles.statsButtonText, { color: currentTheme.buttonText }]}>
-            View Statistics
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Graphs Section */}
-      <View style={styles.graphsSection}>
-        <View style={styles.graphsRow}>
-          <View style={[styles.graphContainer, { backgroundColor: currentTheme.card }]}>
-            <MostPlayedGraph chartWidth={graphWidth} chartHeight={graphHeight} />
-          </View>
-          <View style={[styles.graphContainer, { backgroundColor: currentTheme.card }]}>
-            <BestScoreGraph chartWidth={graphWidth} chartHeight={graphHeight} />
-          </View>
+          <Text style={[styles.graphTitle, { color: currentTheme.text }]}>Best Score</Text>
+          <BestScoreGraph chartWidth={graphWidth} chartHeight={graphHeight} />
         </View>
-        <View style={styles.singleGraphRow}>
-          <View style={[styles.graphContainer, { backgroundColor: currentTheme.card, width: singleGraphWidth }]}>
-            <MostConsistentGraph chartWidth={singleGraphWidth} chartHeight={graphHeight} />
-          </View>
+
+        <View
+          style={[
+            styles.graphCard,
+            styles.graphCardFull,
+            { backgroundColor: currentTheme.surface, borderColor: currentTheme.border },
+          ]}
+        >
+          <Text style={[styles.graphTitle, { color: currentTheme.text }]}>Most Consistent</Text>
+          <MostConsistentGraph
+            chartWidth={isWide ? width - 156 : width - 84}
+            chartHeight={graphHeight}
+          />
         </View>
       </View>
 
-      <View style={{ height: 40 }} />
-
-      {/* Modals */}
-      <UserSettings
-        visible={settingsVisible}
-        onClose={() => setSettingsVisible(false)}
-      />
+      <UserSettings visible={settingsVisible} onClose={() => setSettingsVisible(false)} />
       <BannerChange
         visible={showBannerChange}
         initialColor={user.bannerColor}
         onCancel={() => setShowBannerChange(false)}
-        onConfirm={(color) => {
-          // Optionally update Firestore or context here.
-          setShowBannerChange(false);
-        }}
+        onConfirm={() => setShowBannerChange(false)}
       />
       <PictureChange
         visible={showPictureChange}
         initialPhotoURL={user.photoURL}
         onCancel={() => setShowPictureChange(false)}
-        onConfirm={(newPhotoURL) => {
-          // Optionally update Firestore or context here.
-          setShowPictureChange(false);
-        }}
+        onConfirm={() => setShowPictureChange(false)}
       />
-      {/* NEW: Statistics modal */}
-      <ViewStats
-        visible={viewStatsVisible}
-        onClose={() => setViewStatsVisible(false)}
-      />
+      <ViewStats visible={viewStatsVisible} onClose={() => setViewStatsVisible(false)} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
   },
-  scrollContentContainer: {
-    paddingBottom: 40,
+  content: {
+    padding: 18,
+    paddingBottom: 36,
+    gap: 18,
   },
-  headerContainer: {
-    width: "100%",
-    position: "relative",
+  hero: {
+    borderRadius: 32,
+    padding: 22,
+    gap: 18,
   },
-  bannerContainer: {
-    width: "100%",
-    height: "100%",
+  heroTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 16,
   },
-  profileImageWrapper: {
-    position: "absolute",
-    bottom: -40,
-    left: 20,
-    zIndex: 100,
+  heroActions: {
+    flexDirection: 'row',
+    gap: 10,
   },
-  profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+  heroIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  identityCard: {
+    borderRadius: 28,
+    padding: 18,
+    gap: 18,
+  },
+  identityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  avatar: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
     borderWidth: 3,
-    borderColor: "#fff",
+    borderColor: '#fff',
   },
-  pictureIcon: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    padding: 8,
-    borderRadius: 20,
-    zIndex: 200,
+  avatarFallback: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  settingsIconBanner: {
-    position: "absolute",
-    bottom: 10,
-    right: 10,
-    zIndex: 300,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    padding: 8,
-    borderRadius: 20,
+  avatarEditButton: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  paintbrushIcon: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    padding: 6,
-    borderRadius: 20,
+  identityCopy: {
+    flex: 1,
   },
-  infoContainer: {
-    marginTop: 50,
-    paddingHorizontal: 16,
+  username: {
+    color: '#fff',
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '700',
+    fontFamily: 'Parkinsans',
   },
-  text: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginVertical: 8,
+  identitySubcopy: {
+    marginTop: 6,
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: 14,
+    fontFamily: 'Parkinsans',
+  },
+  heroMetrics: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  section: {
+    marginTop: 4,
   },
   statsButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 16,
   },
   statsButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginLeft: 8,
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: 'Parkinsans',
   },
-  graphsSection: {
-    marginTop: 20,
+  graphGrid: {
+    gap: 14,
   },
-  graphsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    marginBottom: 16,
+  graphGridWide: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
-  graphContainer: {
+  graphCard: {
+    borderWidth: 1,
+    borderRadius: 26,
+    padding: 18,
+    minWidth: 0,
     flex: 1,
-    marginHorizontal: 4,
-    marginVertical: 4,
-    padding: 8,
-    borderRadius: 10,
   },
-  singleGraphRow: {
-    alignItems: "center",
+  graphCardFull: {
+    width: '100%',
+  },
+  graphTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+    fontFamily: 'Parkinsans',
   },
 });
-

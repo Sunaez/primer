@@ -50,7 +50,7 @@ export default function BarChart({
   width,
   height,
   currentTheme,
-  fontFamily = 'Parkisans',
+  fontFamily = 'Parkinsans',
 }: ThemedBarChartProps) {
   if (!data || data.length === 0) {
     return <NoDataView width={width} height={height} theme={currentTheme} fontFamily={fontFamily} />;

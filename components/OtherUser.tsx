@@ -1,8 +1,8 @@
-// /components/OtherUser.tsx
-import React from "react";
-import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import THEMES from "@/constants/themes";
+import React from 'react';
+import { View, Text, Image, StyleSheet, Pressable } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+
+import THEMES from '@/constants/themes';
 
 export interface OtherUserProps {
   username: string;
@@ -11,14 +11,42 @@ export interface OtherUserProps {
   photoURL: string | null;
   onRemove?: () => void;
   onBlock?: () => void;
-  onAdd?: () => void; // For adding a friend
-  onAccept?: () => void; // For accepting an incoming friend request
-  onReject?: () => void; // For rejecting an incoming friend request
-  onCancel?: () => void; // For canceling an outgoing friend request
-  requestSent?: boolean; // When showing Add Friends, indicates if a request was sent
+  onAdd?: () => void;
+  onAccept?: () => void;
+  onReject?: () => void;
+  onCancel?: () => void;
+  requestSent?: boolean;
 }
 
-const OtherUser: React.FC<OtherUserProps> = ({
+function ActionChip({
+  icon,
+  label,
+  color,
+  onPress,
+  disabled = false,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  color: string;
+  onPress?: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled || !onPress}
+      style={[
+        styles.actionChip,
+        { backgroundColor: color, opacity: disabled || !onPress ? 0.65 : 1 },
+      ]}
+    >
+      <Ionicons name={icon} size={15} color="#fff" />
+      <Text style={styles.actionLabel}>{label}</Text>
+    </Pressable>
+  );
+}
+
+export default function OtherUser({
   username,
   bannerColor,
   theme,
@@ -30,122 +58,149 @@ const OtherUser: React.FC<OtherUserProps> = ({
   onReject,
   onCancel,
   requestSent,
-}) => {
+}: OtherUserProps) {
   const userTheme = THEMES[theme] || THEMES.Dark;
+
   return (
-    <View style={styles.container}>
-      <View style={[styles.card, { borderColor: userTheme.text }]}>
-        <View style={[styles.topHalf, { backgroundColor: bannerColor }]} />
-        <View style={[styles.bottomHalf, { backgroundColor: userTheme.background }]}>
-          <Image
-            source={
-              photoURL
-                ? { uri: photoURL }
-                : require("@/assets/images/default.jpg")
-            }
-            style={styles.profileImage}
-          />
-          <Text style={[styles.username, { color: userTheme.text }]}>
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: userTheme.surface,
+          borderColor: userTheme.border,
+        },
+      ]}
+    >
+      <View style={[styles.banner, { backgroundColor: bannerColor }]} />
+
+      <View style={styles.identityRow}>
+        <Image
+          source={photoURL ? { uri: photoURL } : require('@/assets/images/default.jpg')}
+          style={styles.avatar}
+        />
+        <View style={styles.identityCopy}>
+          <Text style={[styles.username, { color: userTheme.text }]} numberOfLines={1}>
             {username}
           </Text>
-        </View>
-        <View style={styles.iconContainer}>
-          {onRemove && (
-            <TouchableOpacity style={styles.iconButton} onPress={onRemove}>
-              <Ionicons name="person-remove-outline" size={20} color="red" />
-            </TouchableOpacity>
-          )}
-          {onBlock && (
-            <TouchableOpacity style={styles.iconButton} onPress={onBlock}>
-              <Ionicons name="hand-left-outline" size={20} color="orange" />
-            </TouchableOpacity>
-          )}
-          {onAccept && (
-            <TouchableOpacity style={styles.iconButton} onPress={onAccept}>
-              <Ionicons name="checkmark-outline" size={20} color="green" />
-            </TouchableOpacity>
-          )}
-          {onReject && (
-            <TouchableOpacity style={styles.iconButton} onPress={onReject}>
-              <Ionicons name="close-outline" size={20} color="red" />
-            </TouchableOpacity>
-          )}
-          {onAdd && !requestSent && (
-            <TouchableOpacity style={styles.iconButton} onPress={onAdd}>
-              <Ionicons name="person-add-outline" size={20} color="green" />
-            </TouchableOpacity>
-          )}
-          {onAdd && requestSent && (
-            <View style={styles.iconButton}>
-              <Ionicons name="paper-plane-outline" size={20} color="blue" />
-            </View>
-          )}
-          {onCancel && (
-            <TouchableOpacity style={styles.iconButton} onPress={onCancel}>
-              <Ionicons name="close-circle-outline" size={20} color="purple" />
-            </TouchableOpacity>
-          )}
+          <View style={styles.themePill}>
+            <View style={[styles.themeSwatch, { backgroundColor: userTheme.primary }]} />
+            <Text style={[styles.themeText, { color: userTheme.text }]}>{theme} theme</Text>
+          </View>
         </View>
       </View>
-      {requestSent && (
-        <Text style={[styles.requestSentText, { color: userTheme.text }]}>
-          Request Sent
-        </Text>
-      )}
+
+      <View style={styles.actionsRow}>
+        {onAccept ? (
+          <ActionChip icon="checkmark" label="Accept" color="#2e9b57" onPress={onAccept} />
+        ) : null}
+        {onReject ? (
+          <ActionChip icon="close" label="Reject" color="#d04a4a" onPress={onReject} />
+        ) : null}
+        {onAdd ? (
+          requestSent ? (
+            <ActionChip icon="paper-plane-outline" label="Sent" color="#3f78c9" disabled />
+          ) : (
+            <ActionChip icon="person-add-outline" label="Add" color="#2e9b57" onPress={onAdd} />
+          )
+        ) : null}
+        {onCancel ? (
+          <ActionChip
+            icon="close-circle-outline"
+            label="Cancel"
+            color="#7a4fd1"
+            onPress={onCancel}
+          />
+        ) : null}
+        {onRemove ? (
+          <ActionChip
+            icon="person-remove-outline"
+            label="Remove"
+            color="#d04a4a"
+            onPress={onRemove}
+          />
+        ) : null}
+        {onBlock ? (
+          <ActionChip icon="hand-left-outline" label="Block" color="#d88928" onPress={onBlock} />
+        ) : null}
+      </View>
     </View>
   );
-};
-
-export default OtherUser;
+}
 
 const styles = StyleSheet.create({
-  container: {
-    marginVertical: 8,
-    alignItems: "center",
-  },
   card: {
-    width: "90%",
-    height: 100,
     borderWidth: 1,
-    borderRadius: 8,
-    overflow: "hidden",
-    position: "relative",
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginBottom: 14,
   },
-  topHalf: {
+  banner: {
+    height: 70,
+  },
+  identityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    marginTop: -24,
+  },
+  avatar: {
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    borderWidth: 3,
+    borderColor: '#fff',
+    backgroundColor: '#d1d5db',
+  },
+  identityCopy: {
     flex: 1,
-  },
-  bottomHalf: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingLeft: 60,
-  },
-  profileImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    position: "absolute",
-    left: 10,
-    top: "50%",
-    transform: [{ translateY: -25 }],
-    borderWidth: 2,
-    borderColor: "#fff",
+    marginLeft: 14,
+    paddingTop: 24,
   },
   username: {
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 19,
+    fontWeight: '700',
+    fontFamily: 'Parkinsans',
   },
-  iconContainer: {
-    position: "absolute",
-    bottom: 4,
-    right: 4,
-    flexDirection: "row",
+  themePill: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
-  iconButton: {
-    marginLeft: 4,
+  themeSwatch: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
-  requestSentText: {
-    marginTop: 4,
-    fontSize: 14,
+  themeText: {
+    fontSize: 12,
+    opacity: 0.8,
+    fontFamily: 'Parkinsans',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+  },
+  actionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  actionLabel: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: 'Parkinsans',
   },
 });

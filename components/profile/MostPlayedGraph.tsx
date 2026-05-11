@@ -92,7 +92,7 @@ const MostPlayedGraph: React.FC<MostPlayedGraphProps> = ({ chartWidth, chartHeig
             width={chartWidth}
             height={chartHeight}
             currentTheme={currentTheme}
-            fontFamily="Parkisans"
+            fontFamily="Parkinsans"
           />
         </>
       ) : (

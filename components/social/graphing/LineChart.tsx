@@ -23,7 +23,7 @@ export default function LineChart({
   width,
   height,
   currentTheme,
-  fontFamily = 'Parkisans',
+  fontFamily = 'Parkinsans',
 }: ThemedLineChartProps) {
   if (!seriesMap || seriesMap.length === 0) {
     return (
