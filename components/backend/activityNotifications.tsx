@@ -1,5 +1,5 @@
 // /components/backend/activityNotifications.tsx
-import { auth, db } from "@/components/firebaseConfig";
+import { db } from "@/components/firebaseConfig";
 import {
   doc,
   getDoc,
@@ -27,6 +27,12 @@ const milestoneMessages = [
   "At this point {username} might live in {gameName} — {totalPlays} plays deep."
 ];
 
+const newHighScoreMessages = [
+  "{username} beat their all-time high score in {gameName}, improving from {previousHigh} to {newHigh}!",
+  "New personal best: {username} moved from {previousHigh} to {newHigh} in {gameName}!",
+  "{username} just raised the bar in {gameName}: {previousHigh} to {newHigh}.",
+];
+
 const friendDailyBestBeatenMessages = [
   "{username} just beat your daily score in {gameName} by {diff} points!",
   "Heads up! {username}'s new daily score in {gameName} beats yours by {diff} points!",
@@ -50,10 +56,10 @@ function getRandomMessage(templates: string[]): string {
 
 /**
  * Helper to create an activity document in the triggering user's activity feed.
- * The activity is stored in the "activities" subcollection under the user's profile document.
+ * The activity is stored in the same collection path read by the activity feed.
  */
 function createActivity(batch: WriteBatch, ownerUserId: string, activityData: any) {
-  const activityRef = doc(collection(db, "profile", ownerUserId, "activities"));
+  const activityRef = doc(collection(db, "Activity", ownerUserId, "Activity"));
   batch.set(activityRef, activityData);
 }
 
@@ -63,6 +69,7 @@ function createActivity(batch: WriteBatch, ownerUserId: string, activityData: an
 export interface StatsData {
   bestScoreIndex?: number;
   dailyBestScoreIndex?: number;
+  lastDailyUpdate?: string;
   totalPlays?: number;
   updatedAt?: any;
 }
@@ -85,17 +92,10 @@ export interface StatsData {
  */
 export async function runActivityNotifications(
   userId: string,
-  gameId: string
+  gameId: string,
+  previousStats: StatsData | null,
+  userStats: StatsData
 ): Promise<void> {
-  // Retrieve the user's aggregated statistics document for this game.
-  const statsDocRef = doc(db, "Statistics", userId, "games", gameId);
-  const statsDocSnap = await getDoc(statsDocRef);
-  if (!statsDocSnap.exists()) {
-    console.error(`Aggregated statistics not found for user ${userId} in game ${gameId}.`);
-    return;
-  }
-  const userStats = statsDocSnap.data() as StatsData;
-  
   // Retrieve the user's profile document to extract username and friends list.
   const userDocRef = doc(db, "profile", userId);
   const userDocSnap = await getDoc(userDocRef);
@@ -105,16 +105,56 @@ export async function runActivityNotifications(
   }
   const userData = userDocSnap.data();
   const username = userData?.username || "Someone";
+  const theme = userData?.theme || "Dark";
   const friendsList: string[] = userData?.friends?.friends || [];
   const gameName = gameId; // Adjust if you have a friendlier display name
 
   // Create a batch for atomic writes.
   const batch = writeBatch(db);
+  let activityWritten = false;
 
-  // --- Event 1: Friend Daily Best Beaten ---
+  const sender = [{ uid: userId, username, theme }];
+
+  // --- Event 1: New All-Time High Score ---
+  const previousBest = previousStats?.bestScoreIndex ?? 0;
+  const currentBest = userStats.bestScoreIndex ?? 0;
+  if (currentBest > previousBest) {
+    const template = getRandomMessage(newHighScoreMessages);
+    const message = template
+      .replace("{username}", username)
+      .replace("{gameName}", gameName)
+      .replace("{previousHigh}", previousBest.toString())
+      .replace("{newHigh}", currentBest.toString());
+    const activityData = {
+      content: {
+        recipients: [userId, ...friendsList],
+        type: "newHighScore",
+        message,
+        data: { relatedGame: gameName, previousHigh: previousBest, newHigh: currentBest },
+        fromUser: userId,
+        fromName: username,
+        sender,
+        timestamp: serverTimestamp(),
+      },
+      reactions: [],
+      comments: [],
+    };
+    createActivity(batch, userId, activityData);
+    activityWritten = true;
+  }
+
+  // --- Event 2: Friend Daily Best Beaten ---
   // For each friend, if the user's current daily best exceeds the friend's,
   // create a notification.
-  if (userStats.dailyBestScoreIndex !== undefined) {
+  const previousDailyBest =
+    previousStats?.lastDailyUpdate === userStats.lastDailyUpdate
+      ? previousStats?.dailyBestScoreIndex ?? 0
+      : 0;
+
+  if (
+    typeof userStats.dailyBestScoreIndex === "number" &&
+    userStats.dailyBestScoreIndex > previousDailyBest
+  ) {
     await Promise.all(
       friendsList.map(async (friendId) => {
         const friendStatsRef = doc(db, "Statistics", friendId, "games", gameId);
@@ -123,7 +163,8 @@ export async function runActivityNotifications(
           const friendStats = friendStatsSnap.data();
           if (
             typeof friendStats?.dailyBestScoreIndex === "number" &&
-            (userStats.dailyBestScoreIndex ?? 0) > friendStats.dailyBestScoreIndex
+            (userStats.dailyBestScoreIndex ?? 0) > friendStats.dailyBestScoreIndex &&
+            previousDailyBest <= friendStats.dailyBestScoreIndex
           ) {
             const diff = (userStats.dailyBestScoreIndex ?? 0) - friendStats.dailyBestScoreIndex;
             const template = getRandomMessage(friendDailyBestBeatenMessages);
@@ -145,23 +186,27 @@ export async function runActivityNotifications(
                   diff,
                 },
                 fromUser: userId,
+                fromName: username,
+                sender,
                 timestamp: serverTimestamp(),
               },
               reactions: [],
               comments: [],
             };
             createActivity(batch, userId, activityData);
+            activityWritten = true;
           }
         }
       })
     );
   }
 
-  // --- Event 2: Milestone ---
+  // --- Event 3: Milestone ---
   // If the user's total plays is a multiple of 25, generate a milestone notification.
   if (
     userStats.totalPlays !== undefined &&
-    userStats.totalPlays % 25 === 0
+    userStats.totalPlays % 25 === 0 &&
+    userStats.totalPlays !== previousStats?.totalPlays
   ) {
     const totalPlays = userStats.totalPlays;
     const template = getRandomMessage(milestoneMessages);
@@ -176,14 +221,19 @@ export async function runActivityNotifications(
         message,
         data: { relatedGame: gameName, totalPlays },
         fromUser: userId,
+        fromName: username,
+        sender,
         timestamp: serverTimestamp(),
       },
       reactions: [],
       comments: [],
     };
     createActivity(batch, userId, activityData);
+    activityWritten = true;
   }
 
   // Commit all batched writes atomically.
-  await batch.commit();
+  if (activityWritten) {
+    await batch.commit();
+  }
 }

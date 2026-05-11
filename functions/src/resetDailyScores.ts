@@ -20,7 +20,7 @@ export const resetDailyScores = onSchedule(
     schedule: "0 0 * * *",  
     timeZone: "Etc/UTC",  // midnight UTC
   },
-  async (event) => {
+  async (_event: unknown) => {
     logger.info("Starting daily score reset...");
 
     try {
@@ -36,7 +36,7 @@ export const resetDailyScores = onSchedule(
       const db = admin.firestore();
       const batch = db.batch();
 
-      snapshot.docs.forEach((docSnap) => {
+      snapshot.docs.forEach((docSnap: admin.firestore.QueryDocumentSnapshot) => {
         batch.update(docSnap.ref, { dailyBestScoreIndex: 0 });
       });
 

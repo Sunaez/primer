@@ -1,7 +1,7 @@
 // /components/social/activity/ActivityColumn.tsx
 
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList } from 'react-native';
 import {
   onSnapshot,
   updateDoc,
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRightWidth: 1,
     borderRightColor: '#444',
-    height: '100%',
+    flex: 1,
   },
   header: {
     fontSize: 20,

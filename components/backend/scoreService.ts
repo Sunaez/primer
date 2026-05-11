@@ -6,7 +6,7 @@ import {
   runTransaction,
   serverTimestamp
 } from "firebase/firestore";
-import { runActivityNotifications } from "@/components/backend/activityNotifications";
+import { runActivityNotifications, type StatsData } from "@/components/backend/activityNotifications";
 
 export interface ScoreData {
   [key: string]: any;
@@ -55,22 +55,26 @@ export async function uploadGameScore(
   const newScoreIndex = data.scoreIndex || 0;
   const newTimestamp = data.timestamp || Date.now();
   const todayString = new Date(newTimestamp).toISOString().split("T")[0];
+  let previousStats: StatsData | null = null;
+  let nextStats: StatsData | null = null;
 
   // Run a transaction to update (or create) the aggregated statistics document.
   await runTransaction(db, async (transaction) => {
     const statsDoc = await transaction.get(statsDocRef);
 
     if (!statsDoc.exists()) {
-      // Create a new statistics document if it does not exist.
-      transaction.set(statsDocRef, {
+      nextStats = {
         bestScoreIndex: newScoreIndex,
         dailyBestScoreIndex: newScoreIndex,
         lastDailyUpdate: todayString,
         totalPlays: 1,
         updatedAt: serverTimestamp()
-      });
+      };
+      // Create a new statistics document if it does not exist.
+      transaction.set(statsDocRef, nextStats);
     } else {
-      const statsData = statsDoc.data();
+      const statsData = statsDoc.data() as StatsData;
+      previousStats = statsData;
       const currentBest = statsData.bestScoreIndex || 0;
       const currentDailyBest = statsData.dailyBestScoreIndex || 0;
       const lastDailyUpdate = statsData.lastDailyUpdate || "";
@@ -90,18 +94,23 @@ export async function uploadGameScore(
       const updatedBest = newScoreIndex > currentBest ? newScoreIndex : currentBest;
       const updatedTotalPlays = (statsData.totalPlays || 0) + 1;
 
-      transaction.update(statsDocRef, {
+      const updatedStats = {
         bestScoreIndex: updatedBest,
         dailyBestScoreIndex: updatedDailyBest,
         lastDailyUpdate: updatedDailyDate,
         totalPlays: updatedTotalPlays,
         updatedAt: serverTimestamp()
-      });
+      };
+      nextStats = updatedStats;
+
+      transaction.update(statsDocRef, updatedStats);
     }
   });
 
   // Generate activity notifications using the client's current statistics.
-  await runActivityNotifications(userId, gameId);
+  if (nextStats) {
+    await runActivityNotifications(userId, gameId, previousStats, nextStats);
+  }
 
   return newDocRef.id;
 }

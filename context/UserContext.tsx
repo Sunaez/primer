@@ -42,36 +42,99 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Listen for authentication state changes
-    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        const uid = firebaseUser.uid;
-        // Subscribe to user profile changes from Firestore
-        const unsubscribeProfile = onSnapshot(doc(db, 'profile', uid), (docSnap) => {
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            setUser({
-              uid,
-              username: data.username,
-              photoURL: data.photoURL,
-              theme: data.theme,
-              bannerColor: data.bannerColor,
-              friends: data.friends,
-            });
-          } else {
-            setUser(null);
-          }
-          setLoading(false);
-        });
-        return () => {
-          unsubscribeProfile();
-        };
-      } else {
-        setUser(null);
+    let mounted = true;
+    let unsubscribeProfile: (() => void) | undefined;
+    let profileTimeout: ReturnType<typeof setTimeout> | undefined;
+
+    const finishLoading = () => {
+      if (mounted) {
         setLoading(false);
       }
+    };
+
+    const authTimeout = setTimeout(() => {
+      console.warn('Firebase auth initialisation timed out; continuing as guest.');
+      setUser(null);
+      finishLoading();
+    }, 8000);
+
+    // Listen for authentication state changes
+    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      clearTimeout(authTimeout);
+      if (profileTimeout) {
+        clearTimeout(profileTimeout);
+        profileTimeout = undefined;
+      }
+      unsubscribeProfile?.();
+      unsubscribeProfile = undefined;
+
+      if (firebaseUser) {
+        const uid = firebaseUser.uid;
+        profileTimeout = setTimeout(() => {
+          console.warn('User profile loading timed out; continuing with a fallback profile.');
+          setUser({
+            uid,
+            username: firebaseUser.displayName || firebaseUser.email || 'User',
+            photoURL: firebaseUser.photoURL ?? null,
+            theme: 'Dark',
+            bannerColor: '#333333',
+            friends: { friends: [], friendRequests: [], blocked: [] },
+          });
+          finishLoading();
+        }, 8000);
+
+        // Subscribe to user profile changes from Firestore
+        unsubscribeProfile = onSnapshot(
+          doc(db, 'profile', uid),
+          (docSnap) => {
+            if (!mounted) return;
+            if (profileTimeout) {
+              clearTimeout(profileTimeout);
+              profileTimeout = undefined;
+            }
+
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              setUser({
+                uid,
+                username: data.username ?? 'User',
+                photoURL: data.photoURL ?? null,
+                theme: THEMES[data.theme as ThemeName] ? data.theme : 'Dark',
+                bannerColor: data.bannerColor ?? '#333333',
+                friends: data.friends ?? { friends: [], friendRequests: [], blocked: [] },
+              });
+            } else {
+              setUser(null);
+            }
+            finishLoading();
+          },
+          (error) => {
+            if (profileTimeout) {
+              clearTimeout(profileTimeout);
+              profileTimeout = undefined;
+            }
+            console.error('Error loading user profile:', error);
+            setUser(null);
+            finishLoading();
+          }
+        );
+      } else {
+        setUser(null);
+        finishLoading();
+      }
+    }, (error) => {
+      clearTimeout(authTimeout);
+      console.error('Error initialising auth state:', error);
+      setUser(null);
+      finishLoading();
     });
     return () => {
+      mounted = false;
+      clearTimeout(authTimeout);
+      if (profileTimeout) {
+        clearTimeout(profileTimeout);
+      }
+      unsubscribeProfile?.();
       unsubscribeAuth();
     };
   }, []);

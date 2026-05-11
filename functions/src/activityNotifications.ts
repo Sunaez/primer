@@ -75,15 +75,15 @@ function getRandomMessage(templates: string[]): string {
  * are allowed to view it.
  */
 function createActivity(
-  batch: FirebaseFirestore.WriteBatch,
-  db: FirebaseFirestore.Firestore,
+  batch: admin.firestore.WriteBatch,
+  db: admin.firestore.Firestore,
   ownerUserId: string,
   activityData: any
 ) {
   const activityRef = db
-    .collection("profile")
+    .collection("Activity")
     .doc(ownerUserId)
-    .collection("activities")
+    .collection("Activity")
     .doc();
   batch.set(activityRef, activityData);
 }
@@ -138,8 +138,10 @@ export const onStatisticsUpdate = onDocumentUpdated(
 
     // Extract username and friends list (using an empty array if none exists).
     const username = userData?.username || "Someone";
+    const theme = userData?.theme || "Dark";
     const friendsList: string[] = userData?.friends?.friends || [];
     const gameName = gameId; // Adjust as needed for a friendlier game name.
+    const sender = [{ uid: userId, username, theme }];
 
     // Create a batch to perform writes atomically.
     const batch = db.batch();
@@ -190,6 +192,8 @@ export const onStatisticsUpdate = onDocumentUpdated(
             message,
             data: { relatedGame: gameName, previousHigh, newHigh },
             fromUser: userId,
+            fromName: username,
+            sender,
             timestamp: admin.firestore.FieldValue.serverTimestamp(),
           },
           reactions: [],
@@ -212,6 +216,8 @@ export const onStatisticsUpdate = onDocumentUpdated(
             message,
             data: { relatedGame: gameName, previousHigh, newHigh },
             fromUser: userId,
+            fromName: username,
+            sender,
             timestamp: admin.firestore.FieldValue.serverTimestamp(),
           },
           reactions: [],
@@ -260,6 +266,8 @@ export const onStatisticsUpdate = onDocumentUpdated(
                   diff,
                 },
                 fromUser: userId,
+                fromName: username,
+                sender,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
               },
               reactions: [],
@@ -292,6 +300,8 @@ export const onStatisticsUpdate = onDocumentUpdated(
           message,
           data: { relatedGame: gameName, totalPlays },
           fromUser: userId,
+          fromName: username,
+          sender,
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
         },
         reactions: [],
